@@ -1,0 +1,239 @@
+<!-- designer/templates/designer/exam_preview.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview: {{ exam.name }} - PDF to Exam</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
+
+        /* Preview Banner */
+        .preview-banner {
+            background: linear-gradient(135deg, #ffa502, #ff6348);
+            color: #fff; padding: 12px 30px; font-size: 0.9rem;
+            display: flex; justify-content: space-between; align-items: center;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .preview-banner .actions { display: flex; gap: 10px; }
+        .preview-banner a { color: #fff; background: rgba(0,0,0,0.2);
+                             padding: 6px 14px; border-radius: 6px;
+                             text-decoration: none; font-size: 0.82rem; font-weight: 600; }
+        .preview-banner a:hover { background: rgba(0,0,0,0.35); }
+
+        .main { padding: 30px; max-width: 900px; margin: 0 auto; }
+
+        /* Exam Header */
+        .exam-header {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px; padding: 30px; margin-bottom: 20px; text-align: center;
+        }
+        .exam-header h1 { color: #fff; font-size: 1.8rem; margin-bottom: 10px; }
+        .exam-header .subtitle { color: #9999b8; font-size: 0.95rem; margin-bottom: 20px; }
+        .exam-meta-row { display: flex; justify-content: center; gap: 20px;
+                          flex-wrap: wrap; margin-top: 16px; }
+        .meta-pill { background: rgba(102,126,234,0.15); color: #b8b8d4;
+                     padding: 6px 14px; border-radius: 20px; font-size: 0.82rem; }
+        .meta-pill strong { color: #fff; }
+
+        /* Instructions */
+        .instructions {
+            background: rgba(102,126,234,0.08);
+            border-left: 3px solid #667eea;
+            padding: 16px 20px; border-radius: 8px; margin-bottom: 20px;
+        }
+        .instructions h3 { color: #667eea; font-size: 0.9rem; margin-bottom: 8px; text-transform: uppercase; }
+        .instructions p { color: #ddd; font-size: 0.9rem; line-height: 1.6; }
+
+        /* Question Card */
+        .question-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px; padding: 22px; margin-bottom: 16px;
+        }
+        .q-header { display: flex; justify-content: space-between; align-items: center;
+                    margin-bottom: 14px; }
+        .q-number { background: linear-gradient(135deg, #667eea, #764ba2);
+                    color: #fff; padding: 6px 14px; border-radius: 20px;
+                    font-size: 0.85rem; font-weight: 700; }
+        .q-text { color: #fff; font-size: 1rem; margin-bottom: 16px; line-height: 1.6; }
+
+        .options { display: grid; gap: 10px; }
+        .option {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 16px; background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .option:hover { background: rgba(255,255,255,0.06); border-color: rgba(102,126,234,0.3); }
+        .option.correct { background: rgba(46,213,115,0.1); border-color: #2ed573; }
+        .option-letter {
+            width: 30px; height: 30px; border-radius: 50%;
+            background: rgba(255,255,255,0.08); color: #b8b8d4;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.9rem; flex-shrink: 0;
+        }
+        .option.correct .option-letter { background: #2ed573; color: #fff; }
+        .option-text { flex: 1; color: #ddd; font-size: 0.92rem; line-height: 1.4; }
+        .correct-badge { color: #2ed573; font-size: 0.78rem; font-weight: 700;
+                          background: rgba(46,213,115,0.15); padding: 2px 8px; border-radius: 4px; }
+
+        .explanation {
+            margin-top: 14px; padding: 12px 16px;
+            background: rgba(255,165,2,0.08);
+            border-left: 3px solid #ffa502; border-radius: 6px;
+            color: #ddd; font-size: 0.88rem; line-height: 1.5;
+        }
+        .explanation strong { color: #ffa502; }
+
+        /* Empty */
+        .empty-state { text-align: center; padding: 80px 20px; color: #9999b8; }
+        .empty-state .icon { font-size: 3.5rem; margin-bottom: 16px; }
+
+        /* Footer Actions */
+        .footer-actions {
+            display: flex; justify-content: center; gap: 12px;
+            margin-top: 30px; padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .btn { padding: 10px 22px; border: none; border-radius: 10px; font-size: 0.88rem;
+               font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block;
+               font-family: inherit; transition: opacity 0.2s; }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+        .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #b8b8d4; }
+        .btn:hover { opacity: 0.85; }
+        .btn-outline:hover { border-color: #667eea; color: #667eea; opacity: 1; }
+
+        @media (max-width: 768px) {
+            .main { padding: 16px; }
+            .exam-header { padding: 20px; }
+            .exam-header h1 { font-size: 1.4rem; }
+            .exam-meta-row { flex-direction: column; align-items: center; gap: 8px; }
+            .preview-banner { flex-direction: column; gap: 8px; text-align: center; }
+        }
+
+        @media print {
+            .preview-banner, .footer-actions { display: none; }
+            body { background: #fff; color: #000; }
+            .exam-header, .question-card { background: #fff; border-color: #ddd; color: #000; }
+            .q-text, .option-text { color: #000; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Preview Banner -->
+<div class="preview-banner">
+    <div>
+        👁 <strong>Preview Mode</strong> — This is how students will see the exam (with answers highlighted)
+    </div>
+    <div class="actions">
+        <a href="{% url 'designer:exam_detail' exam.id %}">← Back to Details</a>
+        <a href="{% url 'designer:exam_edit' exam.id %}">✏️ Edit</a>
+        <a href="javascript:window.print()">🖨 Print</a>
+    </div>
+</div>
+
+<div class="main">
+
+    <!-- Exam Header -->
+    <div class="exam-header">
+        {% if exam.institution %}
+        <div style="color:#667eea; font-size:0.85rem; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px;">
+            {{ exam.institution }}
+        </div>
+        {% endif %}
+
+        <h1>{{ exam.name }}</h1>
+
+        {% if exam.course or exam.exam_code %}
+        <div class="subtitle">
+            {% if exam.course %}{{ exam.course }}{% endif %}
+            {% if exam.exam_code %} · Code: <strong>{{ exam.exam_code }}</strong>{% endif %}
+        </div>
+        {% endif %}
+
+        {% if exam.instructor %}
+        <div style="color:#999; font-size:0.85rem;">Instructor: {{ exam.instructor }}</div>
+        {% endif %}
+
+        <div class="exam-meta-row">
+            <div class="meta-pill">⏱ <strong>{{ exam.duration_minutes }}</strong> minutes</div>
+            <div class="meta-pill">❓ <strong>{{ questions|length }}</strong> questions</div>
+            <div class="meta-pill">🎯 Pass mark: <strong>{{ exam.pass_mark }}%</strong></div>
+            <div class="meta-pill">🔄 Attempts: <strong>{{ exam.max_attempts }}</strong></div>
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    {% if exam.instructions %}
+    <div class="instructions">
+        <h3>📖 Instructions</h3>
+        <p>{{ exam.instructions|linebreaks }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Questions -->
+    {% if questions %}
+    {% for q in questions %}
+    <div class="question-card">
+        <div class="q-header">
+            <span class="q-number">Question {{ forloop.counter }} of {{ questions|length }}</span>
+        </div>
+
+        <div class="q-text">{{ q.question_text }}</div>
+
+        <div class="options">
+            <div class="option {% if q.correct_answer == 'A' %}correct{% endif %}">
+                <div class="option-letter">A</div>
+                <div class="option-text">{{ q.option_a }}</div>
+                {% if q.correct_answer == 'A' %}<span class="correct-badge">✓ CORRECT</span>{% endif %}
+            </div>
+            <div class="option {% if q.correct_answer == 'B' %}correct{% endif %}">
+                <div class="option-letter">B</div>
+                <div class="option-text">{{ q.option_b }}</div>
+                {% if q.correct_answer == 'B' %}<span class="correct-badge">✓ CORRECT</span>{% endif %}
+            </div>
+            <div class="option {% if q.correct_answer == 'C' %}correct{% endif %}">
+                <div class="option-letter">C</div>
+                <div class="option-text">{{ q.option_c }}</div>
+                {% if q.correct_answer == 'C' %}<span class="correct-badge">✓ CORRECT</span>{% endif %}
+            </div>
+            <div class="option {% if q.correct_answer == 'D' %}correct{% endif %}">
+                <div class="option-letter">D</div>
+                <div class="option-text">{{ q.option_d }}</div>
+                {% if q.correct_answer == 'D' %}<span class="correct-badge">✓ CORRECT</span>{% endif %}
+            </div>
+        </div>
+
+        {% if q.explanation %}
+        <div class="explanation">
+            <strong>💡 Explanation:</strong> {{ q.explanation }}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+
+    <!-- Footer Actions -->
+    <div class="footer-actions">
+        <a href="{% url 'designer:exam_detail' exam.id %}" class="btn btn-outline">← Back to Details</a>
+        <a href="{% url 'designer:exam_edit' exam.id %}" class="btn btn-primary">✏️ Edit Exam</a>
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+        <div class="icon">❓</div>
+        <h3>No Questions Yet</h3>
+        <p style="margin-top:10px;">This exam has no questions to preview.</p>
+        <a href="{% url 'designer:exam_edit' exam.id %}" class="btn btn-primary" style="margin-top:20px;">
+            ✏️ Add Questions
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+
+</body>
+</html>

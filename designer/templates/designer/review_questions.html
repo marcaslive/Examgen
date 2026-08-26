@@ -1,0 +1,484 @@
+<!-- designer/templates/designer/review_questions.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Questions - PDF to Exam</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
+
+        /* Navbar */
+        .navbar { background: rgba(20,20,35,0.95); border-bottom: 1px solid rgba(255,255,255,0.08);
+                  padding: 0 30px; height: 60px; display: flex; align-items: center;
+                  justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .navbar-brand { color: #fff; font-size: 1.2rem; font-weight: 700; text-decoration: none; }
+        .navbar-brand span { color: #667eea; }
+        .nav-links { display: flex; gap: 8px; }
+        .nav-link { color: #b8b8d4; text-decoration: none; padding: 8px 16px;
+                    border-radius: 8px; font-size: 0.9rem; transition: all 0.2s; }
+        .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .nav-link.active { background: rgba(102,126,234,0.2); color: #667eea; }
+        .nav-link.logout { color: #ff6b6b; }
+
+        .main { padding: 30px; max-width: 1200px; margin: 0 auto; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 12px; }
+        .page-header h1 { font-size: 1.8rem; color: #fff; }
+        .header-actions { display: flex; gap: 10px; }
+
+        /* Cards */
+        .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 14px; padding: 22px; margin-bottom: 18px; }
+        .card h2 { color: #fff; font-size: 1.15rem; margin-bottom: 14px; padding-bottom: 10px;
+                   border-bottom: 1px solid rgba(255,255,255,0.08); }
+        .card h3 { color: #667eea; font-size: 1rem; margin-bottom: 10px; }
+
+        /* Form Fields */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+        .field { margin-bottom: 14px; }
+        .field label { display: block; margin-bottom: 6px; color: #9999b8; font-size: 0.82rem; font-weight: 600; }
+        .field input, .field select, .field textarea {
+            width: 100%; background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+            padding: 10px 14px; color: #fff; font-size: 0.9rem;
+            outline: none; font-family: inherit; resize: vertical;
+        }
+        .field input:focus, .field select:focus, .field textarea:focus { border-color: #667eea; }
+        .field input::placeholder, .field textarea::placeholder { color: #666; }
+
+        .checkbox-field { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .checkbox-field input[type=checkbox] { width: auto; }
+        .checkbox-field label { display: inline; margin: 0; color: #ddd; font-size: 0.9rem; font-weight: 400; }
+
+        /* Question Card */
+        .question-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+                         border-radius: 12px; padding: 18px; margin-bottom: 12px; }
+        .q-header { display: flex; justify-content: space-between; align-items: center;
+                    margin-bottom: 12px; }
+        .q-number { background: rgba(102,126,234,0.2); color: #667eea; padding: 4px 12px;
+                    border-radius: 20px; font-size: 0.78rem; font-weight: 700; }
+        .q-actions { display: flex; gap: 6px; }
+        .q-text { color: #fff; font-size: 0.95rem; margin-bottom: 12px; line-height: 1.5; }
+        .options { display: grid; gap: 8px; }
+        .option { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+                  background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid transparent; }
+        .option.correct { border-left-color: #2ed573; background: rgba(46,213,115,0.08); }
+        .option-letter { font-weight: 700; color: #9999b8; min-width: 20px; }
+        .option.correct .option-letter { color: #2ed573; }
+        .option-text { flex: 1; color: #ddd; font-size: 0.88rem; }
+        .q-source { margin-top: 10px; color: #666; font-size: 0.78rem; }
+
+        /* Buttons */
+        .btn { padding: 10px 22px; border: none; border-radius: 10px; font-size: 0.88rem;
+               font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block;
+               font-family: inherit; transition: opacity 0.2s; }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-success { background: linear-gradient(135deg, #2ed573, #17c0eb); color: #fff; }
+        .btn-success:hover { opacity: 0.9; }
+        .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #b8b8d4; }
+        .btn-outline:hover { border-color: #667eea; color: #667eea; }
+        .btn-sm { padding: 5px 12px; font-size: 0.75rem; border-radius: 6px; }
+        .btn-danger { background: rgba(255,71,87,0.15); color: #ff4757; border: none; }
+        .btn-danger:hover { background: rgba(255,71,87,0.25); }
+        .btn-edit { background: rgba(255,165,2,0.15); color: #ffa502; border: none; }
+        .btn-edit:hover { background: rgba(255,165,2,0.25); }
+
+        /* Assign Users */
+        .user-select { max-height: 200px; overflow-y: auto; background: rgba(255,255,255,0.03);
+                       border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 10px; }
+
+        /* Grade Rules */
+        .grade-row { display: grid; grid-template-columns: 60px 1fr 1fr auto; gap: 10px;
+                     align-items: center; margin-bottom: 8px; }
+        .grade-row input { padding: 8px 10px; font-size: 0.85rem; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #1a1a2e;
+                 border: 1px solid rgba(255,255,255,0.12); border-left: 3px solid #2ed573;
+                 border-radius: 10px; padding: 14px 20px; color: #fff; font-size: 0.88rem;
+                 z-index: 1000; opacity: 0; transform: translateY(10px); transition: all 0.3s;
+                 pointer-events: none; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.error { border-left-color: #ff4757; }
+
+        /* Save Bar */
+        .save-bar { position: sticky; bottom: 0; background: rgba(20,20,35,0.98);
+                    border-top: 1px solid rgba(255,255,255,0.1); padding: 16px 30px;
+                    display: flex; justify-content: space-between; align-items: center;
+                    z-index: 50; margin: 0 -30px -30px -30px; }
+
+        @media (max-width: 768px) {
+            .main { padding: 16px; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .save-bar { margin: 0 -16px -16px -16px; flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+    <a class="navbar-brand" href="{% url 'designer:home' %}"><span>PDF</span>toExam</a>
+    <div class="nav-links">
+        <a href="{% url 'designer:admin_dashboard' %}" class="nav-link">Dashboard</a>
+        <a href="{% url 'designer:documents' %}" class="nav-link">Documents</a>
+        <a href="{% url 'designer:generate_exam' %}" class="nav-link active">Generate</a>
+        <a href="{% url 'designer:exam_list' %}" class="nav-link">Exams</a>
+        <a href="{% url 'designer:results_dashboard' %}" class="nav-link">Results</a>
+        <a href="{% url 'designer:logout' %}" class="nav-link logout">Logout</a>
+    </div>
+</nav>
+
+<div class="main">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1>📝 Review & Configure Exam</h1>
+        <div class="header-actions">
+            <a href="{% url 'designer:generate_exam' %}" class="btn btn-outline">← Back</a>
+        </div>
+    </div>
+
+    <!-- Exam Configuration Card -->
+    <div class="card">
+        <h2>⚙️ Exam Configuration</h2>
+
+        <div class="grid-2">
+            <div class="field">
+                <label>Exam Name *</label>
+                <input type="text" id="exam-name" placeholder="e.g. Midterm - Electrical Systems" required>
+            </div>
+            <div class="field">
+                <label>Exam Code</label>
+                <input type="text" id="exam-code" placeholder="e.g. EE301-MT">
+            </div>
+        </div>
+
+        <div class="field">
+            <label>Description</label>
+            <textarea id="exam-description" rows="2" placeholder="Brief description..."></textarea>
+        </div>
+
+        <div class="grid-3">
+            <div class="field">
+                <label>Institution</label>
+                <input type="text" id="exam-institution" placeholder="University name">
+            </div>
+            <div class="field">
+                <label>Course</label>
+                <input type="text" id="exam-course" placeholder="Course title">
+            </div>
+            <div class="field">
+                <label>Department</label>
+                <input type="text" id="exam-department" placeholder="Department">
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="field">
+                <label>Instructor</label>
+                <input type="text" id="exam-instructor" placeholder="Instructor name">
+            </div>
+            <div class="field">
+                <label>Instructions to Students</label>
+                <textarea id="exam-instructions" rows="1" placeholder="Read all questions carefully..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Card -->
+    <div class="card">
+        <h2>🎛 Exam Settings</h2>
+
+        <div class="grid-3">
+            <div class="field">
+                <label>Duration (minutes)</label>
+                <input type="number" id="exam-duration" value="60" min="1">
+            </div>
+            <div class="field">
+                <label>Max Attempts</label>
+                <input type="number" id="exam-max-attempts" value="1" min="1">
+            </div>
+            <div class="field">
+                <label>Pass Mark (%)</label>
+                <input type="number" id="exam-pass-mark" value="50" min="0" max="100">
+            </div>
+        </div>
+
+        <div class="grid-3">
+            <div class="field">
+                <label>Answer Mode</label>
+                <select id="exam-answer-mode">
+                    <option value="exam">Examination Mode</option>
+                    <option value="study">Study Mode (Show Answers)</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Result Timing</label>
+                <select id="exam-result-timing">
+                    <option value="immediate">Show Score Immediately</option>
+                    <option value="later">Show Score Later</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Assign To</label>
+                <select id="exam-assignment-type" onchange="toggleUserSelect()">
+                    <option value="all">All Users</option>
+                    <option value="specific">Specific Users</option>
+                    <option value="self">Self Only</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="checkbox-field">
+                <input type="checkbox" id="exam-randomize-questions">
+                <label for="exam-randomize-questions">🔀 Randomize Question Order</label>
+            </div>
+            <div class="checkbox-field">
+                <input type="checkbox" id="exam-randomize-options">
+                <label for="exam-randomize-options">🔀 Randomize Option Order</label>
+            </div>
+        </div>
+
+        <!-- Specific Users -->
+        <div id="user-select-wrap" style="display:none;">
+            <div class="field">
+                <label>Select Users</label>
+                <div class="user-select">
+                    {% for u in users %}
+                    <div class="checkbox-field">
+                        <input type="checkbox" class="user-checkbox" value="{{ u.id }}" id="user-{{ u.id }}">
+                        <label for="user-{{ u.id }}">{{ u.get_full_name|default:u.username }} ({{ u.email }})</label>
+                    </div>
+                    {% empty %}
+                    <p style="color:#666; font-size:0.85rem;">No registered users yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grade Rules -->
+    <div class="card">
+        <h2>🎯 Grade Rules</h2>
+        <div id="grade-rules-container">
+            <!-- Populated by JS -->
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="addGradeRule()">+ Add Grade</button>
+        <p style="color:#666; font-size:0.78rem; margin-top:8px;">
+            Leave empty to use default (A: 70+, B: 60+, C: 50+, D: 45+, E: 40+, F: 0+).
+        </p>
+    </div>
+
+    <!-- Questions List -->
+    <div class="card">
+        <h2>❓ Questions ({{ questions|length }})</h2>
+
+        <div id="questions-list">
+            {% for q in questions %}
+            <div class="question-card" data-index="{{ forloop.counter0 }}">
+                <div class="q-header">
+                    <span class="q-number">Q{{ forloop.counter }}</span>
+                    <div class="q-actions">
+                        <button class="btn-sm btn-edit" onclick="editQuestion({{ forloop.counter0 }})">✏️ Edit</button>
+                        <button class="btn-sm btn-danger" onclick="deleteQuestion({{ forloop.counter0 }})">🗑 Delete</button>
+                    </div>
+                </div>
+
+                <div class="q-text">{{ q.question_text }}</div>
+
+                <div class="options">
+                    <div class="option {% if q.correct_answer == 'A' %}correct{% endif %}">
+                        <span class="option-letter">A</span>
+                        <span class="option-text">{{ q.option_a }}</span>
+                    </div>
+                    <div class="option {% if q.correct_answer == 'B' %}correct{% endif %}">
+                        <span class="option-letter">B</span>
+                        <span class="option-text">{{ q.option_b }}</span>
+                    </div>
+                    <div class="option {% if q.correct_answer == 'C' %}correct{% endif %}">
+                        <span class="option-letter">C</span>
+                        <span class="option-text">{{ q.option_c }}</span>
+                    </div>
+                    <div class="option {% if q.correct_answer == 'D' %}correct{% endif %}">
+                        <span class="option-letter">D</span>
+                        <span class="option-text">{{ q.option_d }}</span>
+                    </div>
+                </div>
+
+                {% if q.explanation %}
+                <div class="q-source">💡 {{ q.explanation }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Save Bar -->
+    <div class="save-bar">
+        <span style="color:#9999b8; font-size:0.85rem;">Ready to save your exam?</span>
+        <div style="display:flex; gap:10px;">
+            <button class="btn btn-outline" onclick="saveExam('draft')">💾 Save as Draft</button>
+            <button class="btn btn-success" onclick="saveExam('published')">🚀 Publish Now</button>
+        </div>
+    </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    const CSRF_TOKEN = '{{ csrf_token }}';
+    let questions = {{ questions|safe }};
+
+    /* ─── Toast ─── */
+    function showToast(msg, isError = false) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast show' + (isError ? ' error' : '');
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    /* ─── Assign Users Toggle ─── */
+    function toggleUserSelect() {
+        const type = document.getElementById('exam-assignment-type').value;
+        document.getElementById('user-select-wrap').style.display = (type === 'specific') ? 'block' : 'none';
+    }
+
+    /* ─── Grade Rules ─── */
+    function addGradeRule(grade = '', min = '', max = '') {
+        const div = document.createElement('div');
+        div.className = 'grade-row';
+        div.innerHTML = `
+            <input type="text" placeholder="A" value="${grade}" class="grade-letter" maxlength="2">
+            <input type="number" placeholder="Min %" value="${min}" class="grade-min" min="0" max="100">
+            <input type="number" placeholder="Max %" value="${max}" class="grade-max" min="0" max="100">
+            <button class="btn-sm btn-danger" onclick="this.parentElement.remove()">🗑</button>
+        `;
+        document.getElementById('grade-rules-container').appendChild(div);
+    }
+
+    /* ─── Delete Question ─── */
+    function deleteQuestion(idx) {
+        if (!confirm('Delete this question?')) return;
+        questions.splice(idx, 1);
+        renderQuestions();
+    }
+
+    /* ─── Edit Question (simple prompt) ─── */
+    function editQuestion(idx) {
+        const q = questions[idx];
+        const newText = prompt('Edit question text:', q.question_text);
+        if (newText !== null && newText.trim()) {
+            q.question_text = newText.trim();
+            renderQuestions();
+        }
+    }
+
+    /* ─── Re-render Questions ─── */
+    function renderQuestions() {
+        const container = document.getElementById('questions-list');
+        container.innerHTML = questions.map((q, i) => `
+            <div class="question-card" data-index="${i}">
+                <div class="q-header">
+                    <span class="q-number">Q${i + 1}</span>
+                    <div class="q-actions">
+                        <button class="btn-sm btn-edit" onclick="editQuestion(${i})">✏️ Edit</button>
+                        <button class="btn-sm btn-danger" onclick="deleteQuestion(${i})">🗑 Delete</button>
+                    </div>
+                </div>
+                <div class="q-text">${escapeHtml(q.question_text)}</div>
+                <div class="options">
+                    ${['A','B','C','D'].map(letter => `
+                        <div class="option ${q.correct_answer === letter ? 'correct' : ''}">
+                            <span class="option-letter">${letter}</span>
+                            <span class="option-text">${escapeHtml(q['option_' + letter.toLowerCase()])}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                ${q.explanation ? `<div class="q-source">💡 ${escapeHtml(q.explanation)}</div>` : ''}
+            </div>
+        `).join('');
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text || '';
+        return div.innerHTML;
+    }
+
+    /* ─── Save Exam ─── */
+    function saveExam(status) {
+        const name = document.getElementById('exam-name').value.trim();
+        if (!name) {
+            showToast('Please enter an exam name.', true);
+            document.getElementById('exam-name').focus();
+            return;
+        }
+        if (questions.length === 0) {
+            showToast('No questions to save.', true);
+            return;
+        }
+
+        const assignedUsers = Array.from(document.querySelectorAll('.user-checkbox:checked')).map(cb => cb.value);
+
+        const gradeRules = Array.from(document.querySelectorAll('.grade-row')).map(row => ({
+            grade: row.querySelector('.grade-letter').value.trim(),
+            min_score: parseInt(row.querySelector('.grade-min').value) || 0,
+            max_score: parseInt(row.querySelector('.grade-max').value) || 0,
+        })).filter(g => g.grade);
+
+        const payload = {
+            exam: {
+                name: name,
+                description: document.getElementById('exam-description').value.trim(),
+                institution: document.getElementById('exam-institution').value.trim(),
+                course: document.getElementById('exam-course').value.trim(),
+                department: document.getElementById('exam-department').value.trim(),
+                exam_code: document.getElementById('exam-code').value.trim(),
+                instructor: document.getElementById('exam-instructor').value.trim(),
+                instructions: document.getElementById('exam-instructions').value.trim(),
+                duration_minutes: parseInt(document.getElementById('exam-duration').value) || 60,
+                max_attempts: parseInt(document.getElementById('exam-max-attempts').value) || 1,
+                pass_mark: parseInt(document.getElementById('exam-pass-mark').value) || 50,
+                answer_mode: document.getElementById('exam-answer-mode').value,
+                result_timing: document.getElementById('exam-result-timing').value,
+                assignment_type: document.getElementById('exam-assignment-type').value,
+                randomize_questions: document.getElementById('exam-randomize-questions').checked,
+                randomize_options: document.getElementById('exam-randomize-options').checked,
+            },
+            questions: questions,
+            grade_rules: gradeRules,
+            assigned_users: assignedUsers,
+            save_as: status,
+        };
+
+        showToast('Saving...');
+        fetch('{% url "designer:save_exam" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify(payload),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message);
+                setTimeout(() => window.location.href = data.redirect, 800);
+            } else {
+                showToast(data.error || 'Failed to save.', true);
+            }
+        })
+        .catch(() => showToast('Network error.', true));
+    }
+</script>
+
+</body>
+</html>

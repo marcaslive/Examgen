@@ -1,0 +1,456 @@
+<!-- designer/templates/designer/exam_detail.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ exam.name }} - PDF to Exam</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
+
+        /* Navbar */
+        .navbar { background: rgba(20,20,35,0.95); border-bottom: 1px solid rgba(255,255,255,0.08);
+                  padding: 0 30px; height: 60px; display: flex; align-items: center;
+                  justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .navbar-brand { color: #fff; font-size: 1.2rem; font-weight: 700; text-decoration: none; }
+        .navbar-brand span { color: #667eea; }
+        .nav-links { display: flex; gap: 8px; }
+        .nav-link { color: #b8b8d4; text-decoration: none; padding: 8px 16px;
+                    border-radius: 8px; font-size: 0.9rem; transition: all 0.2s; }
+        .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .nav-link.active { background: rgba(102,126,234,0.2); color: #667eea; }
+        .nav-link.logout { color: #ff6b6b; }
+
+        .main { padding: 30px; max-width: 1200px; margin: 0 auto; }
+
+        /* Page Header */
+        .page-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            margin-bottom: 25px; flex-wrap: wrap; gap: 14px;
+        }
+        .page-header h1 { font-size: 1.8rem; color: #fff; margin-bottom: 6px; }
+        .page-header .subtitle { color: #9999b8; font-size: 0.9rem; }
+        .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        /* Badges */
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 20px;
+                 font-size: 0.75rem; font-weight: 600; }
+        .badge-draft       { background: rgba(255,165,2,0.15);   color: #ffa502; }
+        .badge-published   { background: rgba(46,213,115,0.15);  color: #2ed573; }
+        .badge-unpublished { background: rgba(255,71,87,0.15);   color: #ff4757; }
+        .badge-archived    { background: rgba(150,150,150,0.15); color: #999; }
+
+        /* Buttons */
+        .btn { padding: 8px 18px; border: none; border-radius: 8px; font-size: 0.85rem;
+               font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block;
+               font-family: inherit; transition: opacity 0.2s; }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+        .btn-success { background: linear-gradient(135deg, #2ed573, #17c0eb); color: #fff; }
+        .btn-warning { background: rgba(255,165,2,0.15); color: #ffa502; }
+        .btn-danger  { background: rgba(255,71,87,0.15); color: #ff4757; }
+        .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #b8b8d4; }
+        .btn:hover { opacity: 0.85; }
+        .btn-outline:hover { border-color: #667eea; color: #667eea; opacity: 1; }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 14px; margin-bottom: 25px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px; padding: 18px;
+        }
+        .stat-card .label { color: #9999b8; font-size: 0.78rem; text-transform: uppercase;
+                            letter-spacing: 0.5px; margin-bottom: 6px; }
+        .stat-card .value { color: #fff; font-size: 1.6rem; font-weight: 700; }
+        .stat-card .icon { font-size: 1.4rem; margin-right: 6px; }
+
+        /* Cards */
+        .card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px; padding: 22px; margin-bottom: 18px;
+        }
+        .card h2 { color: #fff; font-size: 1.15rem; margin-bottom: 14px;
+                   padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08);
+                   display: flex; justify-content: space-between; align-items: center; }
+
+        /* Info Grid */
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                     gap: 14px; }
+        .info-item { }
+        .info-item .label { color: #9999b8; font-size: 0.78rem; text-transform: uppercase;
+                            letter-spacing: 0.5px; margin-bottom: 4px; }
+        .info-item .value { color: #fff; font-size: 0.95rem; }
+
+        /* Questions */
+        .question-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 12px; padding: 18px; margin-bottom: 12px;
+        }
+        .q-header { display: flex; justify-content: space-between; align-items: center;
+                    margin-bottom: 12px; }
+        .q-number { background: rgba(102,126,234,0.2); color: #667eea;
+                    padding: 4px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; }
+        .q-actions { display: flex; gap: 6px; }
+        .q-text { color: #fff; font-size: 0.95rem; margin-bottom: 12px; line-height: 1.5; }
+        .options { display: grid; gap: 8px; }
+        .option { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+                  background: rgba(255,255,255,0.03); border-radius: 8px;
+                  border-left: 3px solid transparent; }
+        .option.correct { border-left-color: #2ed573; background: rgba(46,213,115,0.08); }
+        .option-letter { font-weight: 700; color: #9999b8; min-width: 20px; }
+        .option.correct .option-letter { color: #2ed573; }
+        .option-text { flex: 1; color: #ddd; font-size: 0.88rem; }
+        .q-explanation { margin-top: 10px; padding: 10px 12px; background: rgba(102,126,234,0.06);
+                         border-left: 3px solid #667eea; border-radius: 6px;
+                         color: #b8b8d4; font-size: 0.85rem; }
+
+        /* Attempts Table */
+        table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+        thead { background: rgba(255,255,255,0.04); }
+        th { padding: 12px 14px; text-align: left; color: #9999b8; font-weight: 600;
+             font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 12px 14px; border-top: 1px solid rgba(255,255,255,0.06); color: #ddd; }
+        tr:hover { background: rgba(255,255,255,0.03); }
+
+        .empty-mini { text-align: center; padding: 30px 20px; color: #666; font-size: 0.9rem; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #1a1a2e;
+                 border: 1px solid rgba(255,255,255,0.12); border-left: 3px solid #2ed573;
+                 border-radius: 10px; padding: 14px 20px; color: #fff; font-size: 0.88rem;
+                 z-index: 1000; opacity: 0; transform: translateY(10px); transition: all 0.3s;
+                 pointer-events: none; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.error { border-left-color: #ff4757; }
+
+        @media (max-width: 768px) {
+            .main { padding: 16px; }
+            .page-header { flex-direction: column; }
+            th, td { padding: 8px; font-size: 0.78rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+    <a class="navbar-brand" href="{% url 'designer:home' %}"><span>PDF</span>toExam</a>
+    <div class="nav-links">
+        <a href="{% url 'designer:admin_dashboard' %}" class="nav-link">Dashboard</a>
+        <a href="{% url 'designer:documents' %}" class="nav-link">Documents</a>
+        <a href="{% url 'designer:generate_exam' %}" class="nav-link">Generate</a>
+        <a href="{% url 'designer:exam_list' %}" class="nav-link active">Exams</a>
+        <a href="{% url 'designer:results_dashboard' %}" class="nav-link">Results</a>
+        <a href="{% url 'designer:logout' %}" class="nav-link logout">Logout</a>
+    </div>
+</nav>
+
+<div class="main">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1>{{ exam.name }}</h1>
+            <div class="subtitle">
+                {% if exam.exam_code %}Code: <strong>{{ exam.exam_code }}</strong> · {% endif %}
+                Created {{ exam.created_at|date:"M d, Y" }} ·
+                {% if exam.status == 'draft' %}<span class="badge badge-draft">Draft</span>
+                {% elif exam.status == 'published' %}<span class="badge badge-published">Published</span>
+                {% elif exam.status == 'unpublished' %}<span class="badge badge-unpublished">Unpublished</span>
+                {% elif exam.status == 'archived' %}<span class="badge badge-archived">Archived</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="{% url 'designer:exam_list' %}" class="btn btn-outline">← Back</a>
+            <a href="{% url 'designer:exam_edit' exam.id %}" class="btn btn-warning">✏️ Edit</a>
+            <a href="{% url 'designer:exam_preview' exam.id %}" class="btn btn-outline">🔍 Preview</a>
+
+            {% if exam.status != 'published' %}
+            <button class="btn btn-success" onclick="togglePublish('{{ exam.id }}')">🚀 Publish</button>
+            {% else %}
+            <button class="btn btn-warning" onclick="togglePublish('{{ exam.id }}')">⏸ Unpublish</button>
+            {% endif %}
+
+            <button class="btn btn-primary" onclick="duplicateExam('{{ exam.id }}')">📋 Duplicate</button>
+            <button class="btn btn-danger" onclick="deleteExam('{{ exam.id }}')">🗑 Delete</button>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="label">📋 Questions</div>
+            <div class="value">{{ questions|length }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">⏱ Duration</div>
+            <div class="value">{{ exam.duration_minutes }}<span style="font-size:0.9rem; color:#666;"> min</span></div>
+        </div>
+        <div class="stat-card">
+            <div class="label">🎯 Pass Mark</div>
+            <div class="value">{{ exam.pass_mark }}<span style="font-size:0.9rem; color:#666;">%</span></div>
+        </div>
+        <div class="stat-card">
+            <div class="label">🔄 Max Attempts</div>
+            <div class="value">{{ exam.max_attempts }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">📊 Total Attempts</div>
+            <div class="value">{{ attempts|length }}</div>
+        </div>
+    </div>
+
+    <!-- Exam Info -->
+    <div class="card">
+        <h2>ℹ️ Exam Information</h2>
+        <div class="info-grid">
+            {% if exam.institution %}
+            <div class="info-item">
+                <div class="label">Institution</div>
+                <div class="value">{{ exam.institution }}</div>
+            </div>
+            {% endif %}
+            {% if exam.course %}
+            <div class="info-item">
+                <div class="label">Course</div>
+                <div class="value">{{ exam.course }}</div>
+            </div>
+            {% endif %}
+            {% if exam.department %}
+            <div class="info-item">
+                <div class="label">Department</div>
+                <div class="value">{{ exam.department }}</div>
+            </div>
+            {% endif %}
+            {% if exam.instructor %}
+            <div class="info-item">
+                <div class="label">Instructor</div>
+                <div class="value">{{ exam.instructor }}</div>
+            </div>
+            {% endif %}
+            <div class="info-item">
+                <div class="label">Answer Mode</div>
+                <div class="value">{{ exam.get_answer_mode_display }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Result Timing</div>
+                <div class="value">{{ exam.get_result_timing_display }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Assigned To</div>
+                <div class="value">{{ exam.get_assignment_type_display }}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Randomization</div>
+                <div class="value">
+                    {% if exam.randomize_questions %}✅{% else %}❌{% endif %} Questions ·
+                    {% if exam.randomize_options %}✅{% else %}❌{% endif %} Options
+                </div>
+            </div>
+        </div>
+
+        {% if exam.description %}
+        <div style="margin-top:16px;">
+            <div class="label" style="color:#9999b8; font-size:0.78rem; text-transform:uppercase; margin-bottom:4px;">Description</div>
+            <div style="color:#ddd; font-size:0.9rem; line-height:1.5;">{{ exam.description }}</div>
+        </div>
+        {% endif %}
+
+        {% if exam.instructions %}
+        <div style="margin-top:16px;">
+            <div class="label" style="color:#9999b8; font-size:0.78rem; text-transform:uppercase; margin-bottom:4px;">Instructions</div>
+            <div style="color:#ddd; font-size:0.9rem; line-height:1.5;">{{ exam.instructions }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Grade Rules -->
+    {% if grade_rules %}
+    <div class="card">
+        <h2>🎯 Grade Rules</h2>
+        <div class="info-grid">
+            {% for rule in grade_rules %}
+            <div class="stat-card">
+                <div class="label">Grade {{ rule.grade }}</div>
+                <div class="value" style="font-size:1.1rem;">{{ rule.min_score }}% – {{ rule.max_score }}%</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Questions -->
+    <div class="card">
+        <h2>
+            ❓ Questions ({{ questions|length }})
+            <a href="{% url 'designer:exam_edit' exam.id %}" class="btn btn-outline" style="font-size:0.75rem; padding:5px 12px;">✏️ Manage</a>
+        </h2>
+
+        {% if questions %}
+        {% for q in questions %}
+        <div class="question-card">
+            <div class="q-header">
+                <span class="q-number">Q{{ forloop.counter }}</span>
+            </div>
+            <div class="q-text">{{ q.question_text }}</div>
+            <div class="options">
+                <div class="option {% if q.correct_answer == 'A' %}correct{% endif %}">
+                    <span class="option-letter">A</span>
+                    <span class="option-text">{{ q.option_a }}</span>
+                </div>
+                <div class="option {% if q.correct_answer == 'B' %}correct{% endif %}">
+                    <span class="option-letter">B</span>
+                    <span class="option-text">{{ q.option_b }}</span>
+                </div>
+                <div class="option {% if q.correct_answer == 'C' %}correct{% endif %}">
+                    <span class="option-letter">C</span>
+                    <span class="option-text">{{ q.option_c }}</span>
+                </div>
+                <div class="option {% if q.correct_answer == 'D' %}correct{% endif %}">
+                    <span class="option-letter">D</span>
+                    <span class="option-text">{{ q.option_d }}</span>
+                </div>
+            </div>
+            {% if q.explanation %}
+            <div class="q-explanation">💡 {{ q.explanation }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-mini">No questions yet.</div>
+        {% endif %}
+    </div>
+
+    <!-- Attempts -->
+    <div class="card">
+        <h2>
+            📊 Recent Attempts ({{ attempts|length }})
+            {% if attempts %}
+            <a href="{% url 'designer:export_results' exam.id %}" class="btn btn-outline" style="font-size:0.75rem; padding:5px 12px;">📥 Export CSV</a>
+            {% endif %}
+        </h2>
+
+        {% if attempts %}
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Score</th>
+                    <th>Grade</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in attempts %}
+                <tr>
+                    <td>{{ a.user.get_full_name|default:a.user.username }}</td>
+                    <td>{{ a.score }}/{{ a.total_questions }} ({{ a.percentage }}%)</td>
+                    <td>{{ a.grade|default:"—" }}</td>
+                    <td>
+                        {% if a.passed %}
+                        <span class="badge badge-published">✓ Passed</span>
+                        {% else %}
+                        <span class="badge badge-unpublished">✗ Failed</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ a.submitted_at|date:"M d, Y H:i"|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-mini">No attempts yet.</div>
+        {% endif %}
+    </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    const CSRF_TOKEN = '{{ csrf_token }}';
+
+    function showToast(msg, isError = false) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast show' + (isError ? ' error' : '');
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function togglePublish(examId) {
+        fetch(`/exams/${examId}/publish/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': CSRF_TOKEN,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message);
+                setTimeout(() => location.reload(), 700);
+            } else {
+                showToast(data.error, true);
+            }
+        })
+        .catch(() => showToast('Network error.', true));
+    }
+
+    function duplicateExam(examId) {
+        fetch(`/exams/${examId}/duplicate/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': CSRF_TOKEN,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message);
+                setTimeout(() => window.location.href = `/exams/${data.exam_id}/`, 700);
+            } else {
+                showToast(data.error, true);
+            }
+        })
+        .catch(() => showToast('Network error.', true));
+    }
+
+    function deleteExam(examId) {
+        if (!confirm('Are you sure you want to delete this exam? This cannot be undone.')) return;
+
+        fetch(`/exams/${examId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': CSRF_TOKEN,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message);
+                setTimeout(() => window.location.href = '{% url "designer:exam_list" %}', 700);
+            } else {
+                showToast(data.error, true);
+            }
+        })
+        .catch(() => showToast('Network error.', true));
+    }
+</script>
+
+</body>
+</html>

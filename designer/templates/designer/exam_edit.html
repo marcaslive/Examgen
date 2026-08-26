@@ -1,0 +1,575 @@
+<!-- designer/templates/designer/exam_edit.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit {{ exam.name }} - PDF to Exam</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
+
+        /* Navbar */
+        .navbar { background: rgba(20,20,35,0.95); border-bottom: 1px solid rgba(255,255,255,0.08);
+                  padding: 0 30px; height: 60px; display: flex; align-items: center;
+                  justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .navbar-brand { color: #fff; font-size: 1.2rem; font-weight: 700; text-decoration: none; }
+        .navbar-brand span { color: #667eea; }
+        .nav-links { display: flex; gap: 8px; }
+        .nav-link { color: #b8b8d4; text-decoration: none; padding: 8px 16px;
+                    border-radius: 8px; font-size: 0.9rem; transition: all 0.2s; }
+        .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .nav-link.active { background: rgba(102,126,234,0.2); color: #667eea; }
+        .nav-link.logout { color: #ff6b6b; }
+
+        .main { padding: 30px; max-width: 1200px; margin: 0 auto; }
+
+        /* Header */
+        .page-header { display: flex; justify-content: space-between; align-items: center;
+                       margin-bottom: 25px; flex-wrap: wrap; gap: 12px; }
+        .page-header h1 { font-size: 1.8rem; color: #fff; }
+        .header-actions { display: flex; gap: 8px; }
+
+        /* Cards */
+        .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+                border-radius: 14px; padding: 22px; margin-bottom: 18px; }
+        .card h2 { color: #fff; font-size: 1.15rem; margin-bottom: 14px;
+                   padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08);
+                   display: flex; justify-content: space-between; align-items: center; }
+
+        /* Grid Layouts */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+        /* Form Fields */
+        .field { margin-bottom: 14px; }
+        .field label { display: block; margin-bottom: 6px; color: #9999b8;
+                       font-size: 0.82rem; font-weight: 600; }
+        .field input, .field select, .field textarea {
+            width: 100%; background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+            padding: 10px 14px; color: #fff; font-size: 0.9rem;
+            outline: none; font-family: inherit; resize: vertical;
+        }
+        .field input:focus, .field select:focus, .field textarea:focus { border-color: #667eea; }
+        .field input::placeholder, .field textarea::placeholder { color: #666; }
+        .field .help { color: #666; font-size: 0.78rem; margin-top: 4px; }
+        .field .error { color: #ff4757; font-size: 0.78rem; margin-top: 4px; }
+
+        .checkbox-field { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .checkbox-field input[type=checkbox] { width: auto; }
+        .checkbox-field label { display: inline; margin: 0; color: #ddd;
+                                 font-size: 0.9rem; font-weight: 400; }
+
+        /* Buttons */
+        .btn { padding: 10px 22px; border: none; border-radius: 10px; font-size: 0.88rem;
+               font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block;
+               font-family: inherit; transition: opacity 0.2s; }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+        .btn-success { background: linear-gradient(135deg, #2ed573, #17c0eb); color: #fff; }
+        .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #b8b8d4; }
+        .btn-sm { padding: 5px 12px; font-size: 0.75rem; border-radius: 6px; }
+        .btn-danger { background: rgba(255,71,87,0.15); color: #ff4757; border: none; }
+        .btn-danger:hover { background: rgba(255,71,87,0.25); }
+        .btn-edit { background: rgba(255,165,2,0.15); color: #ffa502; border: none; }
+        .btn-edit:hover { background: rgba(255,165,2,0.25); }
+        .btn:hover { opacity: 0.85; }
+        .btn-outline:hover { border-color: #667eea; color: #667eea; opacity: 1; }
+
+        /* Question Card */
+        .question-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+                         border-radius: 12px; padding: 18px; margin-bottom: 12px; }
+        .q-header { display: flex; justify-content: space-between; align-items: center;
+                    margin-bottom: 12px; }
+        .q-number { background: rgba(102,126,234,0.2); color: #667eea;
+                    padding: 4px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; }
+        .q-actions { display: flex; gap: 6px; }
+        .q-text { color: #fff; font-size: 0.95rem; margin-bottom: 12px; line-height: 1.5; }
+        .options { display: grid; gap: 8px; }
+        .option { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+                  background: rgba(255,255,255,0.03); border-radius: 8px;
+                  border-left: 3px solid transparent; }
+        .option.correct { border-left-color: #2ed573; background: rgba(46,213,115,0.08); }
+        .option-letter { font-weight: 700; color: #9999b8; min-width: 20px; }
+        .option.correct .option-letter { color: #2ed573; }
+        .option-text { flex: 1; color: #ddd; font-size: 0.88rem; }
+
+        /* Save Bar */
+        .save-bar { position: sticky; bottom: 0; background: rgba(20,20,35,0.98);
+                    border-top: 1px solid rgba(255,255,255,0.1); padding: 16px 30px;
+                    display: flex; justify-content: space-between; align-items: center;
+                    z-index: 50; margin: 0 -30px -30px -30px; }
+
+        /* Modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                         background: rgba(0,0,0,0.7); z-index: 999; align-items: center;
+                         justify-content: center; padding: 20px; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1);
+                 border-radius: 16px; padding: 24px; max-width: 600px; width: 100%;
+                 max-height: 90vh; overflow-y: auto; }
+        .modal h3 { color: #fff; margin-bottom: 16px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 24px; right: 24px; background: #1a1a2e;
+                 border: 1px solid rgba(255,255,255,0.12); border-left: 3px solid #2ed573;
+                 border-radius: 10px; padding: 14px 20px; color: #fff; font-size: 0.88rem;
+                 z-index: 1000; opacity: 0; transform: translateY(10px); transition: all 0.3s;
+                 pointer-events: none; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.error { border-left-color: #ff4757; }
+
+        @media (max-width: 768px) {
+            .main { padding: 16px; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .save-bar { margin: 0 -16px -16px -16px; flex-direction: column; gap: 10px; }
+            .page-header { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+    <a class="navbar-brand" href="{% url 'designer:home' %}"><span>PDF</span>toExam</a>
+    <div class="nav-links">
+        <a href="{% url 'designer:admin_dashboard' %}" class="nav-link">Dashboard</a>
+        <a href="{% url 'designer:documents' %}" class="nav-link">Documents</a>
+        <a href="{% url 'designer:generate_exam' %}" class="nav-link">Generate</a>
+        <a href="{% url 'designer:exam_list' %}" class="nav-link active">Exams</a>
+        <a href="{% url 'designer:results_dashboard' %}" class="nav-link">Results</a>
+        <a href="{% url 'designer:logout' %}" class="nav-link logout">Logout</a>
+    </div>
+</nav>
+
+<div class="main">
+
+    <!-- Header -->
+    <div class="page-header">
+        <h1>✏️ Edit Exam</h1>
+        <div class="header-actions">
+            <a href="{% url 'designer:exam_detail' exam.id %}" class="btn btn-outline">← Back</a>
+            <a href="{% url 'designer:exam_preview' exam.id %}" class="btn btn-outline">🔍 Preview</a>
+        </div>
+    </div>
+
+    <!-- Exam Form -->
+    <form method="POST" id="exam-form">
+        {% csrf_token %}
+
+        <!-- Basic Info -->
+        <div class="card">
+            <h2>📝 Basic Information</h2>
+
+            {% if form.errors %}
+            <div style="background: rgba(255,71,87,0.1); color: #ff4757; padding: 12px;
+                        border-radius: 8px; margin-bottom: 14px; font-size: 0.85rem;">
+                Please fix the errors below.
+            </div>
+            {% endif %}
+
+            <div class="grid-2">
+                <div class="field">
+                    <label>Exam Name *</label>
+                    {{ form.name }}
+                    {% for error in form.name.errors %}<div class="error">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="field">
+                    <label>Exam Code</label>
+                    {{ form.exam_code }}
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Description</label>
+                {{ form.description }}
+            </div>
+
+            <div class="grid-3">
+                <div class="field">
+                    <label>Institution</label>
+                    {{ form.institution }}
+                </div>
+                <div class="field">
+                    <label>Course</label>
+                    {{ form.course }}
+                </div>
+                <div class="field">
+                    <label>Department</label>
+                    {{ form.department }}
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="field">
+                    <label>Instructor</label>
+                    {{ form.instructor }}
+                </div>
+                <div class="field">
+                    <label>Status</label>
+                    {{ form.status }}
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Instructions to Students</label>
+                {{ form.instructions }}
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="card">
+            <h2>🎛 Exam Settings</h2>
+
+            <div class="grid-3">
+                <div class="field">
+                    <label>Duration (minutes)</label>
+                    {{ form.duration_minutes }}
+                </div>
+                <div class="field">
+                    <label>Max Attempts</label>
+                    {{ form.max_attempts }}
+                </div>
+                <div class="field">
+                    <label>Pass Mark (%)</label>
+                    {{ form.pass_mark }}
+                </div>
+            </div>
+
+            <div class="grid-3">
+                <div class="field">
+                    <label>Answer Mode</label>
+                    {{ form.answer_mode }}
+                </div>
+                <div class="field">
+                    <label>Result Timing</label>
+                    {{ form.result_timing }}
+                </div>
+                <div class="field">
+                    <label>Assignment</label>
+                    {{ form.assignment_type }}
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="checkbox-field">
+                    {{ form.randomize_questions }}
+                    <label for="{{ form.randomize_questions.id_for_label }}">🔀 Randomize Question Order</label>
+                </div>
+                <div class="checkbox-field">
+                    {{ form.randomize_options }}
+                    <label for="{{ form.randomize_options.id_for_label }}">🔀 Randomize Option Order</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedule -->
+        <div class="card">
+            <h2>📅 Schedule (Optional)</h2>
+            <div class="grid-3">
+                <div class="field">
+                    <label>Scheduled Date</label>
+                    {{ form.scheduled_date }}
+                </div>
+                <div class="field">
+                    <label>Start Time</label>
+                    {{ form.start_time }}
+                </div>
+                <div class="field">
+                    <label>End Time</label>
+                    {{ form.end_time }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="card">
+            <h2>💬 Result Messages</h2>
+            <div class="grid-2">
+                <div class="field">
+                    <label>Pass Message</label>
+                    {{ form.pass_message }}
+                </div>
+                <div class="field">
+                    <label>Fail Message</label>
+                    {{ form.fail_message }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Assign Users (if applicable) -->
+        {% if users %}
+        <div class="card">
+            <h2>👥 Assign Specific Users</h2>
+            <div class="field">
+                <div style="max-height: 250px; overflow-y: auto; background: rgba(255,255,255,0.03);
+                            border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px;">
+                    {% for user in users %}
+                    <div class="checkbox-field">
+                        <input type="checkbox" name="assigned_users" value="{{ user.id }}" id="user-{{ user.id }}"
+                               {% if user in exam.assigned_users.all %}checked{% endif %}>
+                        <label for="user-{{ user.id }}">
+                            {{ user.get_full_name|default:user.username }}
+                            <span style="color:#666;">({{ user.email }})</span>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="help">Only applies when Assignment is set to "Specific Users".</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Save Bar -->
+        <div class="save-bar">
+            <span style="color:#9999b8; font-size:0.85rem;">💾 Remember to save your changes</span>
+            <div style="display:flex; gap:10px;">
+                <a href="{% url 'designer:exam_detail' exam.id %}" class="btn btn-outline">Cancel</a>
+                <button type="submit" class="btn btn-success">💾 Save Changes</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Questions Section -->
+    <div class="card">
+        <h2>
+            ❓ Questions ({{ questions|length }})
+            <button class="btn btn-primary btn-sm" onclick="openAddQuestion()">+ Add Question</button>
+        </h2>
+
+        <div id="questions-list">
+            {% for q in questions %}
+            <div class="question-card" data-question-id="{{ q.id }}">
+                <div class="q-header">
+                    <span class="q-number">Q{{ forloop.counter }}</span>
+                    <div class="q-actions">
+                        <button class="btn-sm btn-edit" onclick="editQuestion('{{ q.id }}')">✏️ Edit</button>
+                        <button class="btn-sm btn-danger" onclick="deleteQuestion('{{ q.id }}')">🗑 Delete</button>
+                    </div>
+                </div>
+                <div class="q-text">{{ q.question_text }}</div>
+                <div class="options">
+                    <div class="option {% if q.correct_answer == 'A' %}correct{% endif %}">
+                        <span class="option-letter">A</span>
+                        <span class="option-text">{{ q.option_a }}</span>
+                    </div>
+                    <div class="option {% if q.correct_answer == 'B' %}correct{% endif %}">
+                        <span class="option-letter">B</span>
+                        <span class="option-text">{{ q.option_b }}</span>
+                    </div>
+                    <div class="option {% if q.correct_answer == 'C' %}correct{% endif %}">
+                        <span class="option-letter">C</span>
+                        <span class="option-text">{{ q.option_c }}</span>
+                    </div>
+                    <div class="option {% if q.correct_answer == 'D' %}correct{% endif %}">
+                        <span class="option-letter">D</span>
+                        <span class="option-text">{{ q.option_d }}</span>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div style="text-align:center; padding: 40px; color:#666;">
+                No questions yet. Click "+ Add Question" to create one.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+<!-- ═══════ Question Modal ═══════ -->
+<div class="modal-overlay" id="questionModal">
+    <div class="modal">
+        <h3 id="modalTitle">✏️ Edit Question</h3>
+
+        <div class="field">
+            <label>Question Text *</label>
+            <textarea id="q-text" rows="3" class="field-input" required></textarea>
+        </div>
+
+        <div class="grid-2">
+            <div class="field">
+                <label>Option A *</label>
+                <textarea id="q-a" rows="2" class="field-input"></textarea>
+            </div>
+            <div class="field">
+                <label>Option B *</label>
+                <textarea id="q-b" rows="2" class="field-input"></textarea>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="field">
+                <label>Option C *</label>
+                <textarea id="q-c" rows="2" class="field-input"></textarea>
+            </div>
+            <div class="field">
+                <label>Option D *</label>
+                <textarea id="q-d" rows="2" class="field-input"></textarea>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="field">
+                <label>Correct Answer *</label>
+                <select id="q-correct">
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                </select>
+            </div>
+            <div class="field">
+                <label>Explanation (optional)</label>
+                <textarea id="q-explanation" rows="2"></textarea>
+            </div>
+        </div>
+
+        <!-- Add these styles for modal textareas -->
+        <style>
+            .modal textarea, .modal select, .modal input {
+                width: 100%; background: rgba(255,255,255,0.06);
+                border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+                padding: 10px 14px; color: #fff; font-size: 0.9rem;
+                outline: none; font-family: inherit; resize: vertical;
+            }
+            .modal textarea:focus, .modal select:focus, .modal input:focus { border-color: #667eea; }
+        </style>
+
+        <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeQuestionModal()">Cancel</button>
+            <button class="btn btn-success" onclick="saveQuestion()">💾 Save</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    const CSRF_TOKEN = '{{ csrf_token }}';
+    const EXAM_ID = '{{ exam.id }}';
+    let currentQuestionId = null;
+
+    function showToast(msg, isError = false) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.className = 'toast show' + (isError ? ' error' : '');
+        setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    /* ─── Question Modal ─── */
+    function openAddQuestion() {
+        currentQuestionId = null;
+        document.getElementById('modalTitle').textContent = '➕ Add Question';
+        document.getElementById('q-text').value = '';
+        document.getElementById('q-a').value = '';
+        document.getElementById('q-b').value = '';
+        document.getElementById('q-c').value = '';
+        document.getElementById('q-d').value = '';
+        document.getElementById('q-correct').value = 'A';
+        document.getElementById('q-explanation').value = '';
+        document.getElementById('questionModal').classList.add('active');
+    }
+
+    function editQuestion(qId) {
+        const card = document.querySelector(`.question-card[data-question-id="${qId}"]`);
+        if (!card) return;
+        currentQuestionId = qId;
+        document.getElementById('modalTitle').textContent = '✏️ Edit Question';
+        document.getElementById('q-text').value = card.querySelector('.q-text').textContent.trim();
+        const opts = card.querySelectorAll('.option');
+        document.getElementById('q-a').value = opts[0].querySelector('.option-text').textContent.trim();
+        document.getElementById('q-b').value = opts[1].querySelector('.option-text').textContent.trim();
+        document.getElementById('q-c').value = opts[2].querySelector('.option-text').textContent.trim();
+        document.getElementById('q-d').value = opts[3].querySelector('.option-text').textContent.trim();
+        let correct = 'A';
+        opts.forEach((opt, i) => {
+            if (opt.classList.contains('correct')) correct = ['A','B','C','D'][i];
+        });
+        document.getElementById('q-correct').value = correct;
+        document.getElementById('questionModal').classList.add('active');
+    }
+
+    function closeQuestionModal() {
+        document.getElementById('questionModal').classList.remove('active');
+    }
+
+    function saveQuestion() {
+        const payload = {
+            question_text: document.getElementById('q-text').value.trim(),
+            option_a: document.getElementById('q-a').value.trim(),
+            option_b: document.getElementById('q-b').value.trim(),
+            option_c: document.getElementById('q-c').value.trim(),
+            option_d: document.getElementById('q-d').value.trim(),
+            correct_answer: document.getElementById('q-correct').value,
+            explanation: document.getElementById('q-explanation').value.trim(),
+        };
+
+        if (!payload.question_text || !payload.option_a || !payload.option_b
+            || !payload.option_c || !payload.option_d) {
+            showToast('All fields are required.', true);
+            return;
+        }
+
+        const url = currentQuestionId
+            ? `/questions/${currentQuestionId}/edit/`
+            : `/exams/${EXAM_ID}/questions/add/`;
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify(payload),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message || 'Saved.');
+                closeQuestionModal();
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showToast(data.error || 'Failed to save.', true);
+            }
+        })
+        .catch(() => showToast('Network error.', true));
+    }
+
+    function deleteQuestion(qId) {
+        if (!confirm('Delete this question?')) return;
+        fetch(`/questions/${qId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': CSRF_TOKEN,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message);
+                setTimeout(() => location.reload(), 500);
+            } else {
+                showToast(data.error, true);
+            }
+        })
+        .catch(() => showToast('Network error.', true));
+    }
+
+    /* Close modal on overlay click */
+    document.getElementById('questionModal').addEventListener('click', function (e) {
+        if (e.target === this) closeQuestionModal();
+    });
+
+    /* Close on ESC */
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeQuestionModal();
+    });
+</script>
+
+</body>
+</html>

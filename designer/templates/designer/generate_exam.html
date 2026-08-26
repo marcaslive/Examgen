@@ -1,0 +1,345 @@
+<!-- designer/templates/designer/generate_exam.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Exam - PDF to Exam</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
+        .navbar { background: rgba(20,20,35,0.95); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 0 30px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .navbar-brand { color: #fff; font-size: 1.2rem; font-weight: 700; text-decoration: none; }
+        .navbar-brand span { color: #667eea; }
+        .nav-links { display: flex; gap: 8px; align-items: center; }
+        .nav-link { color: #b8b8d4; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; transition: all 0.2s; }
+        .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .nav-link.active { background: rgba(102,126,234,0.2); color: #667eea; }
+        .nav-link.logout { color: #ff6b6b; }
+        .main { padding: 30px; max-width: 1000px; margin: 0 auto; }
+        .page-header h1 { font-size: 1.8rem; color: #fff; margin-bottom: 8px; }
+        .page-header p { color: #9999b8; margin-bottom: 25px; }
+
+        .section {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .section h3 { color: #fff; font-size: 1.1rem; margin-bottom: 16px; }
+
+        .doc-select-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;
+        }
+        .doc-select-item {
+            display: flex; align-items: center; gap: 10px; padding: 12px;
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px; cursor: pointer; transition: all 0.2s;
+        }
+        .doc-select-item:hover { background: rgba(255,255,255,0.06); }
+        .doc-select-item.selected { border-color: #667eea; background: rgba(102,126,234,0.08); }
+        .doc-select-item input[type="checkbox"] { accent-color: #667eea; width: 18px; height: 18px; }
+        .doc-select-name { font-size: 0.9rem; color: #fff; }
+        .doc-select-meta { font-size: 0.75rem; color: #9999b8; }
+
+        .select-actions { margin-top: 12px; display: flex; gap: 10px; }
+        .btn-outline {
+            padding: 6px 14px; background: transparent; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px; color: #b8b8d4; font-size: 0.82rem; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-outline:hover { border-color: #667eea; color: #667eea; }
+
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; color: #b8b8d4; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500; }
+        .form-input {
+            width: 100%; padding: 12px 14px; background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12); border-radius: 10px;
+            color: #fff; font-size: 0.95rem; outline: none;
+        }
+        .form-input:focus { border-color: #667eea; }
+        select.form-input { appearance: auto; }
+
+        .radio-group { display: flex; flex-wrap: wrap; gap: 10px; }
+        .radio-option {
+            display: flex; align-items: center; gap: 6px;
+            padding: 8px 14px; background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px; cursor: pointer; font-size: 0.88rem; transition: all 0.2s;
+        }
+        .radio-option:hover { border-color: #667eea; }
+        .radio-option input[type="radio"] { accent-color: #667eea; }
+
+        .page-options { display: none; margin-top: 12px; }
+        .page-options.active { display: block; }
+        .inline-fields { display: flex; gap: 12px; align-items: center; }
+        .inline-fields input { width: 100px; }
+
+        .count-options { display: flex; flex-wrap: wrap; gap: 8px; }
+        .count-btn {
+            padding: 8px 18px; background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+            color: #e0e0e0; font-size: 0.9rem; cursor: pointer; transition: all 0.2s;
+        }
+        .count-btn:hover, .count-btn.selected { border-color: #667eea; background: rgba(102,126,234,0.12); color: #667eea; }
+
+        .btn-generate {
+            padding: 16px 40px; background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff; border: none; border-radius: 12px;
+            font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .btn-generate:hover { opacity: 0.9; transform: translateY(-2px); }
+        .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .loading-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); z-index: 1000;
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        .loading-overlay.show { display: flex; }
+        .spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.1); border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-overlay p { color: #fff; font-size: 1.1rem; }
+
+        .toast { position: fixed; bottom: 30px; right: 30px; padding: 14px 24px; border-radius: 10px; color: #fff; font-size: 0.9rem; z-index: 1001; transform: translateY(100px); opacity: 0; transition: all 0.3s; }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.success { background: rgba(46,213,115,0.9); }
+        .toast.error { background: rgba(255,71,87,0.9); }
+
+        .empty-state { text-align: center; padding: 40px; color: #666; }
+        .empty-state .icon { font-size: 3rem; margin-bottom: 10px; }
+        .empty-state a { color: #667eea; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="{% url 'designer:home' %}" class="navbar-brand">📄 PDF<span>toExam</span></a>
+        <div class="nav-links">
+            <a href="{% url 'designer:admin_dashboard' %}" class="nav-link">Dashboard</a>
+            <a href="{% url 'designer:documents' %}" class="nav-link">Documents</a>
+            <a href="{% url 'designer:generate_exam' %}" class="nav-link active">Generate</a>
+            <a href="{% url 'designer:exam_list' %}" class="nav-link">Exams</a>
+            <a href="{% url 'designer:results_dashboard' %}" class="nav-link">Results</a>
+            <a href="{% url 'designer:logout' %}" class="nav-link logout">Logout</a>
+        </div>
+    </nav>
+
+    <div class="main">
+        <div class="page-header">
+            <h1>🤖 Generate MCQ Questions</h1>
+            <p>Select your source documents and configure question generation.</p>
+        </div>
+
+        {% if documents %}
+        <!-- Document Selection -->
+        <div class="section">
+            <h3>📚 Select Source Documents</h3>
+            <div class="doc-select-grid">
+                {% for doc in documents %}
+                <label class="doc-select-item" id="doc-item-{{ doc.id }}">
+                    <input type="checkbox" class="doc-checkbox" value="{{ doc.id }}" data-pages="{{ doc.page_count }}">
+                    <div>
+                        <div class="doc-select-name">{{ doc.original_filename }}</div>
+                        <div class="doc-select-meta">{{ doc.page_count }} pages · {{ doc.file_size_display }}</div>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+            <div class="select-actions">
+                <button class="btn-outline" onclick="selectAll()">Select All</button>
+                <button class="btn-outline" onclick="deselectAll()">Deselect All</button>
+            </div>
+        </div>
+
+        <!-- Source Type -->
+        <div class="section">
+            <h3>📄 Page Selection</h3>
+            <div class="radio-group">
+                <label class="radio-option">
+                    <input type="radio" name="source_type" value="entire" checked> Entire PDF(s)
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="source_type" value="range"> Page Range
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="source_type" value="specific"> Specific Pages
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="source_type" value="random"> Random Pages
+                </label>
+            </div>
+
+            <div class="page-options" id="opt-range">
+                <div class="inline-fields">
+                    <label>From page:</label>
+                    <input type="number" class="form-input" id="page-from" min="1" value="1">
+                    <label>To page:</label>
+                    <input type="number" class="form-input" id="page-to" min="1" value="10">
+                </div>
+            </div>
+            <div class="page-options" id="opt-specific">
+                <div class="form-group">
+                    <label>Page numbers (comma separated):</label>
+                    <input type="text" class="form-input" id="specific-pages" placeholder="e.g., 3, 7, 12, 18, 25">
+                </div>
+            </div>
+            <div class="page-options" id="opt-random">
+                <div class="inline-fields">
+                    <label>Number of random pages:</label>
+                    <input type="number" class="form-input" id="random-count" min="1" value="10">
+                </div>
+            </div>
+        </div>
+
+        <!-- Question Count -->
+        <div class="section">
+            <h3>🔢 Number of Questions</h3>
+            <div class="count-options">
+                <button class="count-btn" data-count="5">5</button>
+                <button class="count-btn selected" data-count="10">10</button>
+                <button class="count-btn" data-count="20">20</button>
+                <button class="count-btn" data-count="30">30</button>
+                <button class="count-btn" data-count="50">50</button>
+                <button class="count-btn" data-count="100">100</button>
+                <button class="count-btn" data-count="custom">Custom</button>
+            </div>
+            <div class="form-group" id="custom-count-group" style="display:none; margin-top: 12px;">
+                <input type="number" class="form-input" id="custom-count" placeholder="Enter number" min="1" max="500" style="width: 200px;">
+            </div>
+        </div>
+
+        <!-- Generate Button -->
+        <div style="text-align: center; margin-top: 30px;">
+            <button class="btn-generate" id="btn-generate" onclick="generateQuestions()">
+                🤖 Generate Questions
+            </button>
+        </div>
+
+        {% else %}
+        <div class="empty-state">
+            <div class="icon">📂</div>
+            <p>No documents available. <a href="{% url 'designer:documents' %}">Upload PDFs first</a>.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <p>Generating questions... This may take a moment.</p>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const csrfToken = '{{ csrf_token }}';
+        let selectedCount = '10';
+
+        // Document selection toggle
+        document.querySelectorAll('.doc-checkbox').forEach(cb => {
+            cb.addEventListener('change', function() {
+                this.closest('.doc-select-item').classList.toggle('selected', this.checked);
+            });
+        });
+
+        function selectAll() {
+            document.querySelectorAll('.doc-checkbox').forEach(cb => {
+                cb.checked = true;
+                cb.closest('.doc-select-item').classList.add('selected');
+            });
+        }
+        function deselectAll() {
+            document.querySelectorAll('.doc-checkbox').forEach(cb => {
+                cb.checked = false;
+                cb.closest('.doc-select-item').classList.remove('selected');
+            });
+        }
+
+        // Source type toggle
+        document.querySelectorAll('input[name="source_type"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                document.querySelectorAll('.page-options').forEach(el => el.classList.remove('active'));
+                const opt = document.getElementById('opt-' + this.value);
+                if (opt) opt.classList.add('active');
+            });
+        });
+
+        // Count buttons
+        document.querySelectorAll('.count-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.count-btn').forEach(b => b.classList.remove('selected'));
+                this.classList.add('selected');
+                selectedCount = this.dataset.count;
+                document.getElementById('custom-count-group').style.display =
+                    selectedCount === 'custom' ? 'block' : 'none';
+            });
+        });
+
+        function generateQuestions() {
+            const checked = document.querySelectorAll('.doc-checkbox:checked');
+            if (checked.length === 0) {
+                showToast('Please select at least one document.', 'error');
+                return;
+            }
+
+            const docIds = Array.from(checked).map(cb => cb.value);
+            const sourceType = document.querySelector('input[name="source_type"]:checked').value;
+
+            const payload = {
+                documents: docIds,
+                source_type: sourceType,
+                question_count_choice: selectedCount,
+            };
+
+            if (sourceType === 'range') {
+                payload.page_from = document.getElementById('page-from').value;
+                payload.page_to = document.getElementById('page-to').value;
+            } else if (sourceType === 'specific') {
+                payload.specific_pages = document.getElementById('specific-pages').value;
+            } else if (sourceType === 'random') {
+                payload.random_page_count = document.getElementById('random-count').value;
+            }
+
+            if (selectedCount === 'custom') {
+                payload.custom_count = document.getElementById('custom-count').value;
+            }
+
+            const btn = document.getElementById('btn-generate');
+            btn.disabled = true;
+            document.getElementById('loading').classList.add('show');
+
+            fetch('{% url "designer:generate_questions" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify(payload),
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('loading').classList.remove('show');
+                btn.disabled = false;
+                if (data.success) {
+                    showToast(data.count + ' questions generated!', 'success');
+                    setTimeout(() => { window.location.href = '{% url "designer:review_questions" %}'; }, 600);
+                } else {
+                    showToast(data.error, 'error');
+                }
+            })
+            .catch(err => {
+                document.getElementById('loading').classList.remove('show');
+                btn.disabled = false;
+                showToast('Generation failed. Please try again.', 'error');
+            });
+        }
+
+        function showToast(msg, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = 'toast ' + type + ' show';
+            setTimeout(() => { toast.classList.remove('show'); }, 4000);
+        }
+    </script>
+</body>
+</html>

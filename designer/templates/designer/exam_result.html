@@ -1,0 +1,366 @@
+<!-- designer/templates/designer/exam_result.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Result: {{ exam.name }} - PDF to Exam</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: #0f1117; color: #e0e0e0; min-height: 100vh;
+        }
+
+        /* Navbar */
+        .navbar {
+            background: rgba(20,20,35,0.95);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding: 0 30px; height: 60px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .navbar-brand { color: #fff; font-size: 1.2rem; font-weight: 700; text-decoration: none; }
+        .navbar-brand span { color: #667eea; }
+        .nav-links { display: flex; gap: 8px; }
+        .nav-link { color: #b8b8d4; text-decoration: none; padding: 8px 16px;
+                    border-radius: 8px; font-size: 0.9rem; }
+        .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .nav-link.logout { color: #ff6b6b; }
+
+        .main { padding: 30px 20px; max-width: 900px; margin: 0 auto; }
+
+        /* Result Hero */
+        .result-hero {
+            border-radius: 20px; padding: 40px 30px; text-align: center;
+            margin-bottom: 25px; position: relative; overflow: hidden;
+        }
+        .result-hero.pass {
+            background: linear-gradient(135deg, rgba(46,213,115,0.2), rgba(23,192,235,0.15));
+            border: 1px solid rgba(46,213,115,0.3);
+        }
+        .result-hero.fail {
+            background: linear-gradient(135deg, rgba(255,71,87,0.2), rgba(255,165,2,0.15));
+            border: 1px solid rgba(255,71,87,0.3);
+        }
+        .result-hero.pending {
+            background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(240,147,251,0.15));
+            border: 1px solid rgba(102,126,234,0.3);
+        }
+
+        .status-icon {
+            width: 90px; height: 90px; margin: 0 auto 16px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 2.5rem; background: rgba(255,255,255,0.08);
+        }
+        .result-hero.pass .status-icon { background: rgba(46,213,115,0.3); }
+        .result-hero.fail .status-icon { background: rgba(255,71,87,0.3); }
+
+        .result-hero h1 { color: #fff; font-size: 2rem; margin-bottom: 8px; }
+        .result-hero .subtitle { color: #b8b8d4; font-size: 1rem; margin-bottom: 20px; }
+
+        .score-circle {
+            width: 140px; height: 140px; margin: 20px auto;
+            border-radius: 50%;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.05);
+            border: 4px solid;
+        }
+        .score-circle.pass { border-color: #2ed573; }
+        .score-circle.fail { border-color: #ff4757; }
+        .score-circle .pct { font-size: 2.2rem; font-weight: 800; color: #fff; }
+        .score-circle .label { font-size: 0.75rem; color: #9999b8;
+                                text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+        .result-message {
+            background: rgba(255,255,255,0.05); padding: 14px 20px;
+            border-radius: 10px; color: #ddd; font-size: 0.95rem;
+            max-width: 500px; margin: 20px auto 0;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 14px; margin-bottom: 25px;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px; padding: 18px; text-align: center;
+        }
+        .stat-card .label {
+            color: #9999b8; font-size: 0.72rem;
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+        }
+        .stat-card .value { color: #fff; font-size: 1.5rem; font-weight: 700; }
+        .stat-card.correct .value { color: #2ed573; }
+        .stat-card.incorrect .value { color: #ff4757; }
+
+        /* Cards */
+        .card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px; padding: 22px; margin-bottom: 18px;
+        }
+        .card h2 { color: #fff; font-size: 1.1rem; margin-bottom: 14px;
+                   padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+
+        /* Question Review */
+        .q-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px; padding: 16px; margin-bottom: 12px;
+            border-left: 3px solid transparent;
+        }
+        .q-card.correct { border-left-color: #2ed573; }
+        .q-card.wrong { border-left-color: #ff4757; }
+        .q-card.unanswered { border-left-color: #ffa502; }
+
+        .q-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 10px;
+        }
+        .q-number {
+            background: rgba(102,126,234,0.15); color: #667eea;
+            padding: 3px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 700;
+        }
+        .q-status {
+            font-size: 0.72rem; font-weight: 700;
+            padding: 3px 10px; border-radius: 12px;
+        }
+        .q-status.correct { background: rgba(46,213,115,0.15); color: #2ed573; }
+        .q-status.wrong { background: rgba(255,71,87,0.15); color: #ff4757; }
+        .q-status.unanswered { background: rgba(255,165,2,0.15); color: #ffa502; }
+
+        .q-text { color: #fff; font-size: 0.92rem; margin-bottom: 12px; line-height: 1.5; }
+
+        .options { display: grid; gap: 6px; }
+        .option {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 12px; border-radius: 6px;
+            background: rgba(255,255,255,0.03);
+            font-size: 0.85rem;
+        }
+        .option.correct-answer {
+            background: rgba(46,213,115,0.1);
+            border-left: 3px solid #2ed573;
+        }
+        .option.user-wrong {
+            background: rgba(255,71,87,0.1);
+            border-left: 3px solid #ff4757;
+        }
+        .option-letter {
+            font-weight: 700; color: #9999b8; min-width: 18px;
+        }
+        .option.correct-answer .option-letter { color: #2ed573; }
+        .option.user-wrong .option-letter { color: #ff4757; }
+        .option-text { flex: 1; color: #ddd; }
+        .option-badge {
+            font-size: 0.68rem; font-weight: 700;
+            padding: 2px 8px; border-radius: 10px;
+        }
+        .badge-correct { background: rgba(46,213,115,0.2); color: #2ed573; }
+        .badge-your { background: rgba(255,71,87,0.2); color: #ff4757; }
+
+        .explanation {
+            margin-top: 10px; padding: 10px 12px;
+            background: rgba(255,165,2,0.08);
+            border-left: 3px solid #ffa502; border-radius: 6px;
+            color: #ddd; font-size: 0.82rem; line-height: 1.5;
+        }
+        .explanation strong { color: #ffa502; }
+
+        /* Pending Section */
+        .pending-info {
+            background: rgba(102,126,234,0.08);
+            border-left: 3px solid #667eea;
+            padding: 20px; border-radius: 10px;
+            text-align: center; color: #b8b8d4;
+        }
+        .pending-info .icon { font-size: 2rem; margin-bottom: 10px; }
+
+        /* Buttons */
+        .actions {
+            display: flex; gap: 10px; justify-content: center;
+            margin-top: 25px; flex-wrap: wrap;
+        }
+        .btn {
+            padding: 11px 24px; border: none; border-radius: 10px;
+            font-size: 0.9rem; font-weight: 600; cursor: pointer;
+            text-decoration: none; display: inline-block;
+            font-family: inherit; transition: opacity 0.2s;
+        }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #b8b8d4; }
+        .btn-outline:hover { border-color: #667eea; color: #667eea; }
+
+        @media (max-width: 600px) {
+            .main { padding: 16px; }
+            .result-hero { padding: 24px 16px; }
+            .result-hero h1 { font-size: 1.4rem; }
+            .score-circle { width: 110px; height: 110px; }
+            .score-circle .pct { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+    <a class="navbar-brand" href="{% url 'designer:home' %}"><span>PDF</span>toExam</a>
+    <div class="nav-links">
+        {% if request.user.is_staff %}
+            <a href="{% url 'designer:admin_dashboard' %}" class="nav-link">Dashboard</a>
+            <a href="{% url 'designer:exam_list' %}" class="nav-link">Exams</a>
+        {% else %}
+            <a href="{% url 'designer:user_dashboard' %}" class="nav-link">My Exams</a>
+        {% endif %}
+        <a href="{% url 'designer:logout' %}" class="nav-link logout">Logout</a>
+    </div>
+</nav>
+
+<div class="main">
+
+    {% if show_result %}
+        <!-- Result Hero -->
+        <div class="result-hero {% if attempt.passed %}pass{% else %}fail{% endif %}">
+            <div class="status-icon">
+                {% if attempt.passed %}🎉{% else %}😔{% endif %}
+            </div>
+            <h1>
+                {% if attempt.passed %}Congratulations!{% else %}Better Luck Next Time{% endif %}
+            </h1>
+            <div class="subtitle">{{ exam.name }}</div>
+
+            <div class="score-circle {% if attempt.passed %}pass{% else %}fail{% endif %}">
+                <div class="pct">{{ attempt.percentage }}%</div>
+                <div class="label">
+                    {% if attempt.grade %}Grade {{ attempt.grade }}{% else %}Score{% endif %}
+                </div>
+            </div>
+
+            <div class="result-message">
+                {% if attempt.passed %}
+                    {{ exam.pass_message }}
+                {% else %}
+                    {{ exam.fail_message }}
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card correct">
+                <div class="label">✓ Correct</div>
+                <div class="value">{{ attempt.score }}</div>
+            </div>
+            <div class="stat-card incorrect">
+                <div class="label">✗ Wrong</div>
+                <div class="value">{{ attempt.total_questions|add:"-"|add:attempt.score }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">📋 Total</div>
+                <div class="value">{{ attempt.total_questions }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">🎯 Pass Mark</div>
+                <div class="value">{{ exam.pass_mark }}%</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">⏱ Time Spent</div>
+                <div class="value" style="font-size:1rem;">{{ attempt.time_spent_display }}</div>
+            </div>
+        </div>
+
+        <!-- Question Review -->
+        {% if answers %}
+        <div class="card">
+            <h2>📝 Answer Review</h2>
+
+            {% for a in answers %}
+            <div class="q-card {% if a.is_correct %}correct{% elif not a.user_answer.selected_answer %}unanswered{% else %}wrong{% endif %}">
+
+                <div class="q-header">
+                    <span class="q-number">Q{{ forloop.counter }}</span>
+                    {% if a.is_correct %}
+                        <span class="q-status correct">✓ Correct</span>
+                    {% elif not a.user_answer.selected_answer %}
+                        <span class="q-status unanswered">⚠ Not Answered</span>
+                    {% else %}
+                        <span class="q-status wrong">✗ Wrong</span>
+                    {% endif %}
+                </div>
+
+                <div class="q-text">{{ a.question.question_text }}</div>
+
+                <div class="options">
+                    {% for opt in a.options %}
+                    <div class="option
+                        {% if opt.letter == a.correct_display %}correct-answer{% endif %}
+                        {% if opt.letter == a.user_answer.selected_answer and opt.letter != a.correct_display %}user-wrong{% endif %}">
+
+                        <span class="option-letter">{{ opt.letter }}</span>
+                        <span class="option-text">{{ opt.text }}</span>
+
+                        {% if opt.letter == a.correct_display %}
+                            <span class="option-badge badge-correct">✓ Correct</span>
+                        {% endif %}
+                        {% if opt.letter == a.user_answer.selected_answer and opt.letter != a.correct_display %}
+                            <span class="option-badge badge-your">Your answer</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if a.question.explanation %}
+                <div class="explanation">
+                    <strong>💡 Explanation:</strong> {{ a.question.explanation }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+    {% else %}
+        <!-- Pending Results -->
+        <div class="result-hero pending">
+            <div class="status-icon">⏳</div>
+            <h1>Exam Submitted!</h1>
+            <div class="subtitle">{{ exam.name }}</div>
+
+            <div class="result-message" style="margin-top:20px;">
+                Your exam has been submitted successfully. Results will be released by your instructor.
+            </div>
+        </div>
+
+        <div class="pending-info">
+            <div class="icon">🔔</div>
+            <p><strong>Results are not yet available.</strong></p>
+            <p style="margin-top:6px; font-size:0.85rem;">
+                You will be notified when your results are ready to view.
+            </p>
+        </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="actions">
+        {% if request.user.is_staff %}
+            <a href="{% url 'designer:exam_detail' exam.id %}" class="btn btn-outline">← Back to Exam</a>
+            <a href="{% url 'designer:results_dashboard' %}" class="btn btn-primary">📊 All Results</a>
+        {% else %}
+            <a href="{% url 'designer:user_dashboard' %}" class="btn btn-primary">← Back to Dashboard</a>
+        {% endif %}
+
+        {% if show_result and answers %}
+            <button onclick="window.print()" class="btn btn-outline">🖨 Print Result</button>
+        {% endif %}
+    </div>
+
+</div>
+
+</body>
+</html>

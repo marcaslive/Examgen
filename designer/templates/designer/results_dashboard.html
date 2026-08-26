@@ -1,0 +1,200 @@
+<!-- designer/templates/designer/results_dashboard.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results - PDF to Exam</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
+
+        /* Navbar */
+        .navbar { background: rgba(20,20,35,0.95); border-bottom: 1px solid rgba(255,255,255,0.08);
+                  padding: 0 30px; height: 60px; display: flex; align-items: center;
+                  justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .navbar-brand { color: #fff; font-size: 1.2rem; font-weight: 700; text-decoration: none; }
+        .navbar-brand span { color: #667eea; }
+        .nav-links { display: flex; gap: 8px; }
+        .nav-link { color: #b8b8d4; text-decoration: none; padding: 8px 16px;
+                    border-radius: 8px; font-size: 0.9rem; transition: all 0.2s; }
+        .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .nav-link.active { background: rgba(102,126,234,0.2); color: #667eea; }
+        .nav-link.logout { color: #ff6b6b; }
+
+        .main { padding: 30px; max-width: 1400px; margin: 0 auto; }
+        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .page-header h1 { font-size: 1.8rem; color: #fff; }
+
+        /* Filters */
+        .filters { display: flex; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; align-items: center; }
+        .filter-input, .filter-select {
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px; padding: 8px 14px; color: #fff; font-size: 0.85rem;
+            outline: none; font-family: inherit;
+        }
+        .filter-input::placeholder { color: #666; }
+        .filter-input:focus, .filter-select:focus { border-color: #667eea; }
+        .filter-input { min-width: 220px; }
+        .btn { padding: 8px 20px; border: none; border-radius: 8px; font-size: 0.85rem;
+               font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block;
+               font-family: inherit; }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #b8b8d4; }
+        .btn-outline:hover { border-color: #667eea; color: #667eea; }
+
+        /* Table */
+        .table-wrap { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+                      border-radius: 14px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+        thead { background: rgba(255,255,255,0.04); }
+        th { padding: 14px 16px; text-align: left; color: #9999b8; font-weight: 600;
+             font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { padding: 14px 16px; border-top: 1px solid rgba(255,255,255,0.06); color: #ddd; }
+        tr:hover { background: rgba(255,255,255,0.03); }
+
+        /* Badges */
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px;
+                 font-size: 0.72rem; font-weight: 600; }
+        .badge-pass { background: rgba(46,213,115,0.15); color: #2ed573; }
+        .badge-fail { background: rgba(255,71,87,0.15); color: #ff4757; }
+
+        .score-bar-wrap { display: flex; align-items: center; gap: 10px; }
+        .score-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; }
+        .score-bar-fill { height: 100%; border-radius: 3px; }
+
+        /* Empty */
+        .empty-state { text-align: center; padding: 80px 20px; color: #9999b8; }
+        .empty-state .icon { font-size: 3.5rem; margin-bottom: 16px; }
+        .empty-state h3 { color: #ccc; margin-bottom: 10px; }
+
+        @media (max-width: 768px) {
+            .main { padding: 16px; }
+            .filters { flex-direction: column; align-items: stretch; }
+            .filter-input, .filter-select, .btn { width: 100%; }
+            th, td { padding: 10px 8px; font-size: 0.78rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+    <a class="navbar-brand" href="{% url 'designer:home' %}"><span>PDF</span>toExam</a>
+    <div class="nav-links">
+        <a href="{% url 'designer:admin_dashboard' %}" class="nav-link">Dashboard</a>
+        <a href="{% url 'designer:documents' %}" class="nav-link">Documents</a>
+        <a href="{% url 'designer:generate_exam' %}" class="nav-link">Generate</a>
+        <a href="{% url 'designer:exam_list' %}" class="nav-link">Exams</a>
+        <a href="{% url 'designer:results_dashboard' %}" class="nav-link active">Results</a>
+        <a href="{% url 'designer:users_list' %}" class="nav-link">Users</a>
+        <a href="{% url 'designer:logout' %}" class="nav-link logout">Logout</a>
+    </div>
+</nav>
+
+<div class="main">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1>📊 Exam Results</h1>
+        {% if exam_filter %}
+        <a href="{% url 'designer:export_results' exam_filter %}" class="btn btn-primary">📥 Export CSV</a>
+        {% endif %}
+    </div>
+
+    <!-- Filters -->
+    <form method="get" class="filters">
+        <input type="text" name="search" class="filter-input"
+               placeholder="🔍 Search by name..." value="{{ search }}">
+
+        <select name="exam" class="filter-select">
+            <option value="">All Exams</option>
+            {% for exam in exams %}
+            <option value="{{ exam.id }}" {% if exam_filter == exam.id|stringformat:"s" %}selected{% endif %}>
+                {{ exam.name }}
+            </option>
+            {% endfor %}
+        </select>
+
+        <select name="status" class="filter-select">
+            <option value="">All Status</option>
+            <option value="passed" {% if status_filter == "passed" %}selected{% endif %}>Passed</option>
+            <option value="failed" {% if status_filter == "failed" %}selected{% endif %}>Failed</option>
+        </select>
+
+        <select name="sort" class="filter-select">
+            <option value="-submitted_at" {% if sort == "-submitted_at" %}selected{% endif %}>Newest First</option>
+            <option value="submitted_at" {% if sort == "submitted_at" %}selected{% endif %}>Oldest First</option>
+            <option value="-percentage" {% if sort == "-percentage" %}selected{% endif %}>Highest Score</option>
+            <option value="percentage" {% if sort == "percentage" %}selected{% endif %}>Lowest Score</option>
+            <option value="user__username" {% if sort == "user__username" %}selected{% endif %}>Name (A-Z)</option>
+        </select>
+
+        <button type="submit" class="btn btn-primary">Apply</button>
+        <a href="{% url 'designer:results_dashboard' %}" class="btn btn-outline">Reset</a>
+    </form>
+
+    <!-- Results Table -->
+    {% if attempts %}
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Exam</th>
+                    <th>Score</th>
+                    <th>Grade</th>
+                    <th>Status</th>
+                    <th>Time</th>
+                    <th>Submitted</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in attempts %}
+                <tr>
+                    <td>
+                        <strong>{{ a.user.get_full_name|default:a.user.username }}</strong><br>
+                        <small style="color:#666;">{{ a.user.email }}</small>
+                    </td>
+                    <td>{{ a.exam.name }}</td>
+                    <td>
+                        <div class="score-bar-wrap">
+                            <span>{{ a.score }}/{{ a.total_questions }}</span>
+                            <div class="score-bar">
+                                <div class="score-bar-fill"
+                                     style="width: {{ a.percentage }}%;
+                                     background: {% if a.passed %}#2ed573{% else %}#ff4757{% endif %};">
+                                </div>
+                            </div>
+                            <span>{{ a.percentage }}%</span>
+                        </div>
+                    </td>
+                    <td><strong>{{ a.grade|default:"—" }}</strong></td>
+                    <td>
+                        {% if a.passed %}
+                            <span class="badge badge-pass">✓ Passed</span>
+                        {% else %}
+                            <span class="badge badge-fail">✗ Failed</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ a.time_spent_display }}</td>
+                    <td>{{ a.submitted_at|date:"M d, Y H:i"|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+        <div class="icon">📊</div>
+        <h3>No Results Yet</h3>
+        <p>Results will appear here once users complete their exams.</p>
+    </div>
+    {% endif %}
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!-- designer/templates/designer/home.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Exam - Transform Documents into Examinations</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        .container {
+            text-align: center;
+            max-width: 900px;
+            padding: 40px 20px;
+        }
+        .logo-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            font-size: 1.3rem;
+            color: #b8b8d4;
+            margin-bottom: 50px;
+            line-height: 1.6;
+        }
+        .buttons {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 60px;
+        }
+        .btn-main {
+            padding: 25px 60px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            min-width: 220px;
+        }
+        .btn-admin {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
+        }
+        .btn-admin:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.6);
+        }
+        .btn-user {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: #fff;
+            box-shadow: 0 8px 30px rgba(240, 147, 251, 0.4);
+        }
+        .btn-user:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(240, 147, 251, 0.6);
+        }
+        .btn-icon {
+            font-size: 2rem;
+        }
+        .btn-label {
+            font-size: 0.85rem;
+            font-weight: 400;
+            opacity: 0.8;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+        }
+        .feature-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 30px 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-4px);
+        }
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 12px;
+        }
+        .feature-card h3 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+            color: #e0e0f0;
+        }
+        .feature-card p {
+            font-size: 0.85rem;
+            color: #9999b8;
+            line-height: 1.5;
+        }
+        .footer {
+            margin-top: 60px;
+            color: #666;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo-icon">📄</div>
+        <h1>PDF to Exam</h1>
+        <p class="subtitle">
+            Transform your PDF documents into professional MCQ examinations.<br>
+            Upload, generate, configure, and deliver — all in one platform.
+        </p>
+
+        <div class="buttons">
+            <a href="{% url 'designer:admin_login' %}" class="btn-main btn-admin">
+                <span class="btn-icon">🛡️</span>
+                ADMIN
+                <span class="btn-label">Administration Panel</span>
+            </a>
+            <a href="{% url 'designer:user_login' %}" class="btn-main btn-user">
+                <span class="btn-icon">👤</span>
+                USER
+                <span class="btn-label">Take Examinations</span>
+            </a>
+        </div>
+
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">📤</div>
+                <h3>Upload PDFs</h3>
+                <p>Upload multiple PDF documents up to 1 GB combined.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>AI Generation</h3>
+                <p>Automatically generate MCQ questions from your content.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📝</div>
+                <h3>Configurable Exams</h3>
+                <p>Set timing, grading, randomization, and more.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Results & Analytics</h3>
+                <p>Track performance with detailed scoring and reports.</p>
+            </div>
+        </div>
+
+        <p class="footer">PDF to Exam &copy; 2024 — Intelligent Examination Platform</p>
+    </div>
+</body>
+</html>

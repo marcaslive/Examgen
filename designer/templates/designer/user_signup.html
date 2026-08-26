@@ -1,0 +1,172 @@
+<!-- designer/templates/designer/user_signup.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - PDF to Exam</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .signup-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+        }
+        .signup-header { text-align: center; margin-bottom: 30px; }
+        .signup-header .icon { font-size: 3rem; margin-bottom: 10px; }
+        .signup-header h2 { color: #fff; font-size: 1.5rem; }
+        .signup-header p { color: #9999b8; font-size: 0.9rem; margin-top: 5px; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .form-group { margin-bottom: 18px; }
+        .form-group label {
+            display: block; color: #b8b8d4; font-size: 0.85rem;
+            margin-bottom: 6px; font-weight: 500;
+        }
+        .form-group input {
+            width: 100%; padding: 12px 14px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px; color: #fff; font-size: 0.95rem;
+            outline: none; transition: border-color 0.3s;
+        }
+        .form-group input:focus { border-color: #f093fb; }
+        .form-group input::placeholder { color: #666; }
+        .form-group .field-error {
+            color: #ff4757; font-size: 0.8rem; margin-top: 4px;
+        }
+        .btn-signup {
+            width: 100%; padding: 14px;
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            color: #fff; border: none; border-radius: 10px;
+            font-size: 1.1rem; font-weight: 600; cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-signup:hover { opacity: 0.9; }
+        .btn-signup:disabled { opacity: 0.5; cursor: not-allowed; }
+        .error-msg {
+            background: rgba(255,71,87,0.15); border: 1px solid rgba(255,71,87,0.3);
+            color: #ff4757; padding: 12px; border-radius: 8px;
+            margin-bottom: 20px; font-size: 0.85rem;
+        }
+        .links {
+            text-align: center; margin-top: 20px;
+        }
+        .links a {
+            color: #f093fb; text-decoration: none; font-size: 0.9rem; margin: 0 10px;
+        }
+        .links a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="signup-card">
+        <div class="signup-header">
+            <div class="icon">📝</div>
+            <h2>Create Account</h2>
+            <p>Join to access your examinations</p>
+        </div>
+
+        <div id="error-container" class="error-msg" style="display:none;"></div>
+
+        {% if form.errors %}
+        <div class="error-msg">
+            {% for field, errors in form.errors.items %}
+                {% for error in errors %}
+                <div>{{ error }}</div>
+                {% endfor %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form id="signup-form" method="post" action="{% url 'designer:signup' %}">
+            {% csrf_token %}
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="first_name">First Name</label>
+                    <input type="text" id="first_name" name="first_name" placeholder="First name" required value="{{ form.first_name.value|default:'' }}">
+                </div>
+                <div class="form-group">
+                    <label for="last_name">Last Name</label>
+                    <input type="text" id="last_name" name="last_name" placeholder="Last name" required value="{{ form.last_name.value|default:'' }}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="Choose a username" required value="{{ form.username.value|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" placeholder="Your email address" required value="{{ form.email.value|default:'' }}">
+            </div>
+            <div class="form-group">
+                <label for="password1">Password</label>
+                <input type="password" id="password1" name="password1" placeholder="Create a password" required>
+            </div>
+            <div class="form-group">
+                <label for="password2">Confirm Password</label>
+                <input type="password" id="password2" name="password2" placeholder="Confirm password" required>
+            </div>
+            <button type="submit" class="btn-signup" id="btn-submit">Create Account</button>
+        </form>
+
+        <div class="links">
+            <a href="{% url 'designer:user_login' %}">Already have an account? Login</a>
+            <a href="{% url 'designer:home' %}">← Home</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('signup-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const form = this;
+            const btn = document.getElementById('btn-submit');
+            const errorContainer = document.getElementById('error-container');
+            btn.disabled = true;
+            btn.textContent = 'Creating account...';
+            errorContainer.style.display = 'none';
+
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect;
+                } else {
+                    let errorHtml = '';
+                    if (data.errors) {
+                        for (const [field, errs] of Object.entries(data.errors)) {
+                            errs.forEach(e => { errorHtml += '<div>' + e + '</div>'; });
+                        }
+                    } else {
+                        errorHtml = 'Registration failed.';
+                    }
+                    errorContainer.innerHTML = errorHtml;
+                    errorContainer.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Create Account';
+                }
+            })
+            .catch(() => {
+                errorContainer.textContent = 'Network error.';
+                errorContainer.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Create Account';
+            });
+        });
+    </script>
+</body>
+</html>
