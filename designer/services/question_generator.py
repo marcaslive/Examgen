@@ -2,12 +2,13 @@
 
 import json
 import logging
+import os
 import re
 import time
 import uuid
 import requests
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from django.conf import settings
 from django.core.cache import cache
@@ -34,7 +35,7 @@ except ImportError:
 # ============================================================
 MIN_QUESTIONS = 10
 MAX_QUESTIONS = 500
-BATCH_LIMIT = 50  # Chunks of up to 50
+BATCH_LIMIT = 50
 
 PRIMARY_MODEL = getattr(settings, "AI_MODEL", "gemini-3.6-flash")
 GEMINI_MODELS_CASCADE = [
@@ -159,12 +160,20 @@ class QuestionGenerator:
     def available(self) -> bool:
         return (HAS_GEMINI and len(self.gemini_keys) > 0 and bool(self.gemini_keys[0])) or bool(self.hf_token)
 
-    def generate(self, text: str, num_questions: int, batch_index: int = 0, total_batches: int = 1) -> List[dict]:
+    def generate(self, text: Union[str, dict], num_questions: int, batch_index: int = 0, total_batches: int = 1) -> List[dict]:
         if not self.available:
             logger.error("No API keys found for Gemini or Hugging Face.")
             return []
 
-        prepared_text = text[:22000]
+        # Fix: Convert dict or list from text extractor into string before slicing
+        if isinstance(text, dict):
+            full_text = "\n\n".join(str(v) for v in text.values())
+        elif isinstance(text, list):
+            full_text = "\n\n".join(str(v) for v in text)
+        else:
+            full_text = str(text or "")
+
+        prepared_text = full_text[:22000]
         prompt = self._build_prompt(prepared_text, num_questions, batch_index, total_batches)
 
         # 1. PRIMARY: GEMINI CASCADE
@@ -172,7 +181,8 @@ class QuestionGenerator:
             for key in self.gemini_keys:
                 try:
                     client = genai.Client(api_key=key)
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"Failed to create Gemini client: {e}")
                     continue
 
                 for model in GEMINI_MODELS_CASCADE:
@@ -314,149 +324,157 @@ class ExamGenerationManager:
 
     @classmethod
     def start_generation(cls, request, payload: dict) -> Tuple[int, dict]:
-        choice = str(payload.get("question_count_choice", "10")).strip().lower()
-        raw_count = payload.get("custom_count") if choice == "custom" else choice
         try:
-            count = max(MIN_QUESTIONS, min(MAX_QUESTIONS, int(raw_count)))
-        except (TypeError, ValueError):
-            return 400, {"success": False, "error": "Invalid question count."}
+            choice = str(payload.get("question_count_choice", "10")).strip().lower()
+            raw_count = payload.get("custom_count") if choice == "custom" else choice
+            try:
+                count = max(MIN_QUESTIONS, min(MAX_QUESTIONS, int(raw_count)))
+            except (TypeError, ValueError):
+                return 400, {"success": False, "error": "Invalid question count."}
 
-        doc_ids = payload.get("documents") or []
-        if not doc_ids:
-            return 400, {"success": False, "error": "Select at least one document."}
+            doc_ids = payload.get("documents") or []
+            if not doc_ids:
+                return 400, {"success": False, "error": "Select at least one document."}
 
-        status = cls.get_quota_status()
-        batches_needed = (count // BATCH_LIMIT) + (1 if count % BATCH_LIMIT else 0)
+            status = cls.get_quota_status()
+            batches_needed = (count // BATCH_LIMIT) + (1 if count % BATCH_LIMIT else 0)
 
-        if status["rpd_remaining"] < batches_needed:
-            return 429, {
-                "success": False,
-                "error": f"Daily limit exceeded. Need {batches_needed} requests, but only {status['rpd_remaining']} left today.",
-                "retry_after": status["rpd_reset_seconds"],
-                "quota": status,
-            }
+            if status["rpd_remaining"] < batches_needed:
+                return 429, {
+                    "success": False,
+                    "error": f"Daily limit exceeded. Need {batches_needed} requests, but only {status['rpd_remaining']} left today.",
+                    "retry_after": status["rpd_reset_seconds"],
+                    "quota": status,
+                }
 
-        if status["wait_seconds"] > 0:
-            return 429, {
-                "success": False,
-                "error": f"Rate limit cooldown active. Please wait {status['wait_seconds']} seconds.",
-                "retry_after": status["wait_seconds"],
-                "quota": status,
-            }
+            if status["wait_seconds"] > 0:
+                return 429, {
+                    "success": False,
+                    "error": f"Rate limit cooldown active. Please wait {status['wait_seconds']} seconds.",
+                    "retry_after": status["wait_seconds"],
+                    "quota": status,
+                }
 
-        batches = []
-        rem = count
-        while rem > 0:
-            b = min(BATCH_LIMIT, rem)
-            batches.append(b)
-            rem -= b
+            batches = []
+            rem = count
+            while rem > 0:
+                b = min(BATCH_LIMIT, rem)
+                batches.append(b)
+                rem -= b
 
-        try:
-            text_by_page, source_map = cls._extract_text(request, payload)
-        except Exception as e:
-            return 400, {"success": False, "error": str(e)}
+            try:
+                text_by_page, source_map = cls._extract_text(request, payload)
+            except Exception as e:
+                return 400, {"success": False, "error": str(e)}
 
-        if not text_by_page:
-            return 400, {"success": False, "error": "No readable text found in selected pages."}
+            if not text_by_page:
+                return 400, {"success": False, "error": "No readable text found in selected pages."}
 
-        task_id = str(uuid.uuid4())
-        state = {
-            "task_id": task_id,
-            "user_id": request.user.id,
-            "target_count": count,
-            "batch_sizes": batches,
-            "total_batches": len(batches),
-            "batch_index": 0,
-            "collected": [],
-            "text_by_page": text_by_page,
-            "source_map": source_map,
-            "document_ids": [str(d) for d in doc_ids],
-        }
-        cache.set(cls._task_key(task_id), state, timeout=TASK_TIMEOUT)
-
-        request.session["gen_task_id"] = task_id
-        request.session["generation_doc_ids"] = [str(d) for d in doc_ids]
-        request.session.modified = True
-
-        return 200, {
-            "success": True,
-            "plan": {
-                "total_questions": count,
+            task_id = str(uuid.uuid4())
+            state = {
+                "task_id": task_id,
+                "user_id": request.user.id,
+                "target_count": count,
+                "batch_sizes": batches,
                 "total_batches": len(batches),
-                "estimated_minutes": round(len(batches) * 0.3, 1),
-            },
-            "quota": status,
-        }
+                "batch_index": 0,
+                "collected": [],
+                "text_by_page": text_by_page,
+                "source_map": source_map,
+                "document_ids": [str(d) for d in doc_ids],
+            }
+            cache.set(cls._task_key(task_id), state, timeout=TASK_TIMEOUT)
+
+            request.session["gen_task_id"] = task_id
+            request.session["generation_doc_ids"] = [str(d) for d in doc_ids]
+            request.session.modified = True
+
+            return 200, {
+                "success": True,
+                "plan": {
+                    "total_questions": count,
+                    "total_batches": len(batches),
+                    "estimated_minutes": round(len(batches) * 0.3, 1),
+                },
+                "quota": status,
+            }
+        except Exception as e:
+            logger.exception("start_generation crashed")
+            return 500, {"success": False, "error": f"Initialization failed: {str(e)}"}
 
     @classmethod
     def process_next_batch(cls, request) -> Tuple[int, dict]:
-        task_id = request.session.get("gen_task_id")
-        if not task_id:
-            return 400, {"success": False, "error": "No active session."}
+        try:
+            task_id = request.session.get("gen_task_id")
+            if not task_id:
+                return 400, {"success": False, "error": "No active session."}
 
-        state = cache.get(cls._task_key(task_id))
-        if not state:
-            return 410, {"success": False, "error": "Task expired. Start again."}
+            state = cache.get(cls._task_key(task_id))
+            if not state:
+                return 410, {"success": False, "error": "Task expired. Start again."}
 
-        target = state["target_count"]
-        collected = state["collected"]
+            target = state["target_count"]
+            collected = state["collected"]
 
-        if len(collected) >= target:
-            return 200, cls._finish_generation(request, state)
+            if len(collected) >= target:
+                return 200, cls._finish_generation(request, state)
 
-        status = cls.get_quota_status()
-        if status["wait_seconds"] > 0:
-            return 429, {
-                "success": False,
-                "retryable": True,
-                "error": f"Rate limit cooldown active. Resuming in {status['wait_seconds']}s...",
-                "retry_after": status["wait_seconds"],
-                "progress": int((len(collected) / target) * 100),
+            status = cls.get_quota_status()
+            if status["wait_seconds"] > 0:
+                return 429, {
+                    "success": False,
+                    "retryable": True,
+                    "error": f"Rate limit cooldown active. Resuming in {status['wait_seconds']}s...",
+                    "retry_after": status["wait_seconds"],
+                    "progress": int((len(collected) / target) * 100),
+                    "total_so_far": len(collected),
+                    "quota": status,
+                }
+
+            still_needed = target - len(collected)
+            batch_size = min(BATCH_LIMIT, still_needed)
+
+            gen = QuestionGenerator()
+            new_questions = gen.generate(
+                state["text_by_page"],
+                num_questions=batch_size,
+                batch_index=state["batch_index"],
+                total_batches=state["total_batches"]
+            )
+
+            if not new_questions:
+                return 503, {
+                    "success": False,
+                    "retryable": True,
+                    "retry_after": 4,
+                    "error": "AI engines busy. Retrying batch...",
+                    "progress": int((len(collected) / target) * 100),
+                    "total_so_far": len(collected),
+                    "quota": cls.get_quota_status(),
+                }
+
+            collected.extend(new_questions)
+            state["collected"] = collected
+            state["batch_index"] += 1
+            cache.set(cls._task_key(task_id), state, timeout=TASK_TIMEOUT)
+
+            progress = int(min(100, (len(collected) / target) * 100))
+            if len(collected) >= target:
+                return 200, cls._finish_generation(request, state)
+
+            return 200, {
+                "success": True,
+                "done": False,
+                "batch_index": state["batch_index"],
+                "total_batches": state["total_batches"],
+                "progress": progress,
                 "total_so_far": len(collected),
-                "quota": status,
-            }
-
-        still_needed = target - len(collected)
-        batch_size = min(BATCH_LIMIT, still_needed)
-
-        gen = QuestionGenerator()
-        new_questions = gen.generate(
-            state["text_by_page"],
-            num_questions=batch_size,
-            batch_index=state["batch_index"],
-            total_batches=state["total_batches"]
-        )
-
-        if not new_questions:
-            return 503, {
-                "success": False,
-                "retryable": True,
-                "retry_after": 4,
-                "error": "AI engines busy. Retrying batch...",
-                "progress": int((len(collected) / target) * 100),
-                "total_so_far": len(collected),
+                "total_questions": target,
                 "quota": cls.get_quota_status(),
             }
-
-        collected.extend(new_questions)
-        state["collected"] = collected
-        state["batch_index"] += 1
-        cache.set(cls._task_key(task_id), state, timeout=TASK_TIMEOUT)
-
-        progress = int(min(100, (len(collected) / target) * 100))
-        if len(collected) >= target:
-            return 200, cls._finish_generation(request, state)
-
-        return 200, {
-            "success": True,
-            "done": False,
-            "batch_index": state["batch_index"],
-            "total_batches": state["total_batches"],
-            "progress": progress,
-            "total_so_far": len(collected),
-            "total_questions": target,
-            "quota": cls.get_quota_status(),
-        }
+        except Exception as exc:
+            logger.exception("process_next_batch crashed")
+            return 500, {"success": False, "error": f"Generation error: {str(exc)}"}
 
     @classmethod
     def _extract_text(cls, request, payload: dict) -> Tuple[Dict[int, str], Dict[str, dict]]:
@@ -472,7 +490,14 @@ class ExamGenerationManager:
         for document in documents:
             if str(document.file_type).lower() != "pdf":
                 continue
-            path = document.file.path
+
+            try:
+                path = document.file.path
+            except Exception:
+                raise ValueError(f"Document '{document.title}' file path is inaccessible.")
+
+            if not os.path.exists(path):
+                raise ValueError(f"File '{document.title}' is missing from server storage. Please re-upload it.")
 
             if source_type == "entire":
                 pages = None

@@ -1,6 +1,7 @@
 # designer/views/exam_views.py
 
 import json
+import logging
 import random
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -12,9 +13,9 @@ from django.db import transaction
 from ..models import Document, Exam, Question, GradeRule
 from ..forms import ExamForm, QuestionForm, GenerateQuestionsForm
 from ..services.pdf_service import PDFService
-
-# Import the new Manager
 from ..services.question_generator import ExamGenerationManager
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -42,14 +43,16 @@ def generate_start_api(request):
 
     try:
         payload = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"success": False, "error": "Invalid request data."}, status=400)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": f"Invalid request body: {str(e)}"}, status=400)
 
-    # Stash selected documents for the review/save page to use later
-    request.session['generation_doc_ids'] = payload.get("documents", [])
-
-    status_code, response_data = ExamGenerationManager.start_generation(request, payload)
-    return JsonResponse(response_data, status=status_code)
+    try:
+        request.session['generation_doc_ids'] = payload.get("documents", [])
+        status_code, response_data = ExamGenerationManager.start_generation(request, payload)
+        return JsonResponse(response_data, status=status_code)
+    except Exception as e:
+        logger.exception("Error in generate_start_api")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required
@@ -59,8 +62,12 @@ def generate_batch_api(request):
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
-    status_code, response_data = ExamGenerationManager.process_next_batch(request)
-    return JsonResponse(response_data, status=status_code)
+    try:
+        status_code, response_data = ExamGenerationManager.process_next_batch(request)
+        return JsonResponse(response_data, status=status_code)
+    except Exception as e:
+        logger.exception("Error in generate_batch_api")
+        return JsonResponse({'success': False, 'error': f"Server error: {str(e)}"}, status=500)
 
 
 @login_required
@@ -70,7 +77,11 @@ def generate_quota_api(request):
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
-    return JsonResponse({"success": True, **ExamGenerationManager.get_quota_status()})
+    try:
+        return JsonResponse({"success": True, **ExamGenerationManager.get_quota_status()})
+    except Exception as e:
+        logger.exception("Error in generate_quota_api")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 # ============================================================
@@ -89,7 +100,6 @@ def review_questions_view(request):
     if not questions:
         return redirect('designer:generate_exam')
 
-    # Keep a session copy so template/JS always has them
     request.session['generated_questions'] = questions
     request.session.modified = True
 
@@ -113,20 +123,19 @@ def save_exam_view(request):
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid data.'})
+        return JsonResponse({'success': False, 'error': 'Invalid data.'}, status=400)
 
     exam_data = data.get('exam', {})
     questions_data = data.get('questions', [])
     grade_rules_data = data.get('grade_rules', [])
     assigned_user_ids = data.get('assigned_users', [])
-    save_as = data.get('save_as', 'draft')  # 'draft' or 'published'
+    save_as = data.get('save_as', 'draft')
 
     if not questions_data:
-        return JsonResponse({'success': False, 'error': 'No questions to save.'})
+        return JsonResponse({'success': False, 'error': 'No questions to save.'}, status=400)
 
     try:
         with transaction.atomic():
-            # Create exam
             exam = Exam(
                 name=exam_data.get('name', 'Untitled Exam'),
                 description=exam_data.get('description', ''),
@@ -150,7 +159,6 @@ def save_exam_view(request):
                 created_by=request.user,
             )
 
-            # Handle dates
             scheduled_date = exam_data.get('scheduled_date')
             if scheduled_date:
                 exam.scheduled_date = scheduled_date
@@ -163,18 +171,15 @@ def save_exam_view(request):
 
             exam.save()
 
-            # Add source documents
             doc_ids = request.session.get('generation_doc_ids', [])
             if doc_ids:
                 docs = Document.objects.filter(id__in=doc_ids)
                 exam.source_documents.set(docs)
 
-            # Assign users
             if exam.assignment_type == 'specific' and assigned_user_ids:
                 users = User.objects.filter(id__in=assigned_user_ids)
                 exam.assigned_users.set(users)
 
-            # Save questions
             for idx, q in enumerate(questions_data):
                 source_doc = None
                 source_doc_id = q.get('source_document_id')
@@ -198,7 +203,6 @@ def save_exam_view(request):
                     order=idx + 1,
                 )
 
-            # Save grade rules
             if grade_rules_data:
                 for rule in grade_rules_data:
                     GradeRule.objects.create(
@@ -208,7 +212,6 @@ def save_exam_view(request):
                         max_score=int(rule.get('max_score', 100)),
                     )
             else:
-                # Default grading
                 default_grades = [
                     ('A', 70, 100),
                     ('B', 60, 69),
@@ -222,7 +225,6 @@ def save_exam_view(request):
                         exam=exam, grade=grade, min_score=min_s, max_score=max_s
                     )
 
-            # Clear session data
             request.session.pop('review_questions', None)
             request.session.pop('generated_questions', None)
             request.session.pop('generation_doc_ids', None)
@@ -235,43 +237,35 @@ def save_exam_view(request):
         })
 
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+        logger.exception("Error saving exam")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required
 def exam_list_view(request):
-    """List all exams (admin)."""
     if not request.user.is_staff:
         return redirect('designer:user_dashboard')
 
     exams = Exam.objects.filter(created_by=request.user)
-    context = {'exams': exams}
-    return render(request, 'designer/exam_list.html', context)
+    return render(request, 'designer/exam_list.html', {'exams': exams})
 
 
 @login_required
 def exam_detail_view(request, exam_id):
-    """View exam details."""
     if not request.user.is_staff:
         return redirect('designer:user_dashboard')
 
     exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
-    questions = exam.questions.all()
-    grade_rules = exam.grade_rules.all()
-    attempts = exam.attempts.select_related('user').all()
-
-    context = {
+    return render(request, 'designer/exam_detail.html', {
         'exam': exam,
-        'questions': questions,
-        'grade_rules': grade_rules,
-        'attempts': attempts,
-    }
-    return render(request, 'designer/exam_detail.html', context)
+        'questions': exam.questions.all(),
+        'grade_rules': exam.grade_rules.all(),
+        'attempts': exam.attempts.select_related('user').all(),
+    })
 
 
 @login_required
 def exam_edit_view(request, exam_id):
-    """Edit an exam."""
     if not request.user.is_staff:
         return redirect('designer:user_dashboard')
 
@@ -285,22 +279,17 @@ def exam_edit_view(request, exam_id):
     else:
         form = ExamForm(instance=exam)
 
-    questions = exam.questions.all()
-    users = User.objects.filter(is_staff=False, is_active=True)
-
-    context = {
+    return render(request, 'designer/exam_edit.html', {
         'exam': exam,
         'form': form,
-        'questions': questions,
-        'users': users,
-    }
-    return render(request, 'designer/exam_edit.html', context)
+        'questions': exam.questions.all(),
+        'users': User.objects.filter(is_staff=False, is_active=True),
+    })
 
 
 @login_required
 @require_POST
 def exam_publish_view(request, exam_id):
-    """Publish/unpublish an exam (AJAX)."""
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
@@ -323,7 +312,6 @@ def exam_publish_view(request, exam_id):
 @login_required
 @require_POST
 def exam_delete_view(request, exam_id):
-    """Delete an exam (AJAX)."""
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
@@ -336,14 +324,12 @@ def exam_delete_view(request, exam_id):
 @login_required
 @require_POST
 def exam_duplicate_view(request, exam_id):
-    """Duplicate an exam (AJAX)."""
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     original = get_object_or_404(Exam, id=exam_id, created_by=request.user)
 
     with transaction.atomic():
-        # Create exam copy
         new_exam = Exam.objects.create(
             name=f"{original.name} (Copy)",
             description=original.description,
@@ -367,10 +353,8 @@ def exam_duplicate_view(request, exam_id):
             created_by=request.user,
         )
 
-        # Copy source documents
         new_exam.source_documents.set(original.source_documents.all())
 
-        # Copy questions
         for q in original.questions.all():
             Question.objects.create(
                 exam=new_exam,
@@ -386,7 +370,6 @@ def exam_duplicate_view(request, exam_id):
                 order=q.order,
             )
 
-        # Copy grade rules
         for rule in original.grade_rules.all():
             GradeRule.objects.create(
                 exam=new_exam,
@@ -404,25 +387,20 @@ def exam_duplicate_view(request, exam_id):
 
 @login_required
 def exam_preview_view(request, exam_id):
-    """Preview an exam as a student would see it."""
     if not request.user.is_staff:
         return redirect('designer:user_dashboard')
 
     exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
-    questions = list(exam.questions.all())
-
-    context = {
+    return render(request, 'designer/exam_preview.html', {
         'exam': exam,
-        'questions': questions,
+        'questions': list(exam.questions.all()),
         'is_preview': True,
-    }
-    return render(request, 'designer/exam_preview.html', context)
+    })
 
 
 @login_required
 @require_POST
 def question_edit_api(request, question_id):
-    """Edit a question (AJAX)."""
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
@@ -431,7 +409,7 @@ def question_edit_api(request, question_id):
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid data.'})
+        return JsonResponse({'success': False, 'error': 'Invalid data.'}, status=400)
 
     question.question_text = data.get('question_text', question.question_text)
     question.option_a = data.get('option_a', question.option_a)
@@ -450,7 +428,6 @@ def question_edit_api(request, question_id):
 @login_required
 @require_POST
 def question_delete_api(request, question_id):
-    """Delete a question (AJAX)."""
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
@@ -462,7 +439,6 @@ def question_delete_api(request, question_id):
 @login_required
 @require_POST
 def question_add_api(request, exam_id):
-    """Add a question manually (AJAX)."""
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
@@ -471,10 +447,9 @@ def question_add_api(request, exam_id):
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid data.'})
+        return JsonResponse({'success': False, 'error': 'Invalid data.'}, status=400)
 
     max_order = exam.questions.count()
-
     question = Question.objects.create(
         exam=exam,
         question_text=data.get('question_text', 'New question'),
@@ -497,7 +472,6 @@ def question_add_api(request, exam_id):
 @login_required
 @require_POST
 def exam_release_results_view(request, exam_id):
-    """Release results for an exam (AJAX)."""
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
@@ -510,7 +484,6 @@ def exam_release_results_view(request, exam_id):
 @login_required
 @require_POST
 def exam_assign_users_view(request, exam_id):
-    """Assign users to an exam (AJAX)."""
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
@@ -519,7 +492,7 @@ def exam_assign_users_view(request, exam_id):
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid data.'})
+        return JsonResponse({'success': False, 'error': 'Invalid data.'}, status=400)
 
     assignment_type = data.get('assignment_type', exam.assignment_type)
     user_ids = data.get('user_ids', [])
