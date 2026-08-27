@@ -357,446 +357,741 @@
 
     <div class="toast" id="toast"></div>
 
-    <script>
-        const csrfToken = '{{ csrf_token }}';
-        const URL_START  = '{% url "designer:generate_start" %}';
-        const URL_BATCH  = '{% url "designer:generate_batch" %}';
-        const URL_QUOTA  = '{% url "designer:generate_quota" %}';
-        const URL_REVIEW = '{% url "designer:review_questions" %}';
+<script>
+    const csrfToken = '{{ csrf_token }}';
 
-        const CIRCUMFERENCE = 2 * Math.PI * 60; // r=60
-        let selectedCount = '10';
-        let pendingPayload = null;
-        let countdownTimer = null;
-        let isGenerating = false;
+    const URL_START = '{% url "designer:generate_start" %}';
+    const URL_BATCH = '{% url "designer:generate_batch" %}';
+    const URL_QUOTA = '{% url "designer:generate_quota" %}';
+    const URL_REVIEW = '{% url "designer:review_questions" %}';
 
-        // ── init ring ──
-        (function initRing() {
-            const ring = document.getElementById('progress-ring');
-            ring.style.strokeDasharray = String(CIRCUMFERENCE);
-            ring.style.strokeDashoffset = String(CIRCUMFERENCE);
-        })();
+    const CIRCUMFERENCE = 2 * Math.PI * 60;
 
-        // ── document selection ──
-        document.querySelectorAll('.doc-checkbox').forEach(cb => {
-            cb.addEventListener('change', function () {
-                this.closest('.doc-select-item').classList.toggle('selected', this.checked);
-            });
+    let selectedCount = '10';
+    let pendingPayload = null;
+    let isGenerating = false;
+    let progressAnimation = null;
+    let countdownTimer = null;
+
+    const progressRing = document.getElementById('progress-ring');
+
+    if (progressRing) {
+        progressRing.style.strokeDasharray = String(CIRCUMFERENCE);
+        progressRing.style.strokeDashoffset = String(CIRCUMFERENCE);
+    }
+
+    function clampCount(value) {
+        const number = Number.parseInt(value, 10);
+
+        if (!Number.isFinite(number)) {
+            return 10;
+        }
+
+        return Math.max(10, Math.min(500, number));
+    }
+
+    function getBatchSizes(count) {
+        count = clampCount(count);
+
+        if (count <= 50) {
+            return [count];
+        }
+
+        const sizes = [];
+        let remaining = count;
+
+        while (remaining > 0) {
+            const current = Math.min(50, remaining);
+            sizes.push(current);
+            remaining -= current;
+        }
+
+        return sizes;
+    }
+
+    function formatBatchPlan(count) {
+        const sizes = getBatchSizes(count);
+
+        if (sizes.length === 1) {
+            return `1 batch of ${sizes[0]} questions`;
+        }
+
+        return `${sizes.length} batches: ${sizes.join(' + ')}`;
+    }
+
+    // Document selection
+    document.querySelectorAll('.doc-checkbox').forEach((checkbox) => {
+        checkbox.addEventListener('change', function () {
+            this.closest('.doc-select-item')
+                .classList
+                .toggle('selected', this.checked);
         });
-        function selectAll() {
-            document.querySelectorAll('.doc-checkbox').forEach(cb => {
-                cb.checked = true;
-                cb.closest('.doc-select-item').classList.add('selected');
-            });
-        }
-        function deselectAll() {
-            document.querySelectorAll('.doc-checkbox').forEach(cb => {
-                cb.checked = false;
-                cb.closest('.doc-select-item').classList.remove('selected');
-            });
-        }
+    });
 
-        // ── source type ──
-        document.querySelectorAll('input[name="source_type"]').forEach(radio => {
-            radio.addEventListener('change', function () {
-                document.querySelectorAll('.page-options').forEach(el => el.classList.remove('active'));
-                const opt = document.getElementById('opt-' + this.value);
-                if (opt) opt.classList.add('active');
-            });
+    function selectAll() {
+        document.querySelectorAll('.doc-checkbox').forEach((checkbox) => {
+            checkbox.checked = true;
+
+            checkbox.closest('.doc-select-item')
+                .classList
+                .add('selected');
         });
+    }
 
-        // ── count buttons ──
-        document.querySelectorAll('.count-btn').forEach(btn => {
-            btn.addEventListener('click', function () {
-                document.querySelectorAll('.count-btn').forEach(b => b.classList.remove('selected'));
-                this.classList.add('selected');
-                selectedCount = this.dataset.count;
-                const customWrap = document.getElementById('custom-count-group');
-                if (selectedCount === 'custom') {
-                    customWrap.classList.add('show');
-                    updateBatchHint(getCustomCount());
-                } else {
-                    customWrap.classList.remove('show');
-                    updateBatchHint(parseInt(selectedCount, 10));
-                }
-            });
+    function deselectAll() {
+        document.querySelectorAll('.doc-checkbox').forEach((checkbox) => {
+            checkbox.checked = false;
+
+            checkbox.closest('.doc-select-item')
+                .classList
+                .remove('selected');
         });
+    }
 
-        const rangeEl = document.getElementById('custom-range');
-        const countEl = document.getElementById('custom-count');
-        const rangeVal = document.getElementById('range-val');
-
-        function clampCount(n) {
-            n = parseInt(n, 10) || 10;
-            return Math.max(10, Math.min(500, n));
-        }
-        function getCustomCount() {
-            return clampCount(countEl.value);
-        }
-        function updateBatchHint(n) {
-            n = clampCount(n);
-            const batches = n <= 50 ? 1 : Math.ceil(n / 20);
-            const hint = document.getElementById('batch-hint');
-            if (hint) {
-                hint.textContent = batches === 1
-                    ? '· 1 batch (no split)'
-                    : `· ${batches} batches of ~20`;
-            }
-        }
-        if (rangeEl) {
-            rangeEl.addEventListener('input', () => {
-                const v = clampCount(rangeEl.value);
-                rangeVal.textContent = v + ' questions';
-                countEl.value = v;
-                updateBatchHint(v);
-            });
-        }
-        if (countEl) {
-            countEl.addEventListener('input', () => {
-                const v = clampCount(countEl.value);
-                countEl.value = v;
-                rangeEl.value = v;
-                rangeVal.textContent = v + ' questions';
-                updateBatchHint(v);
-            });
-        }
-
-        // ── quota display ──
-        function refreshQuota() {
-            return fetch(URL_QUOTA, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(r => r.json())
-                .then(data => {
-                    if (!data.success) return data;
-                    document.getElementById('q-rpd').textContent =
-                        `${data.rpd_remaining}/${data.rpd_limit} left`;
-                    document.getElementById('q-rpm').textContent =
-                        `${data.rpm_remaining}/${data.rpm_limit} left`;
-                    document.getElementById('q-status').textContent =
-                        data.can_request ? 'Ready' : `Wait ${data.wait_seconds}s`;
-
-                    if (!data.can_request && data.wait_seconds > 0 && !isGenerating) {
-                        startCountdown(data.wait_seconds);
-                    }
-                    return data;
-                })
-                .catch(() => null);
-        }
-        refreshQuota();
-        setInterval(refreshQuota, 30000);
-
-        // ── countdown / fade button ──
-        function startCountdown(seconds) {
-            const banner = document.getElementById('countdown-banner');
-            const timeEl = document.getElementById('countdown-time');
-            const btn = document.getElementById('btn-generate');
-            btn.classList.add('faded');
-            btn.disabled = true;
-            banner.classList.add('show');
-
-            if (countdownTimer) clearInterval(countdownTimer);
-            let left = seconds;
-
-            function tick() {
-                const m = String(Math.floor(left / 60)).padStart(2, '0');
-                const s = String(left % 60).padStart(2, '0');
-                timeEl.textContent = `${m}:${s}`;
-                if (left <= 0) {
-                    clearInterval(countdownTimer);
-                    countdownTimer = null;
-                    banner.classList.remove('show');
-                    btn.classList.remove('faded');
-                    btn.disabled = false;
-                    refreshQuota();
-                    showToast('You can generate again now.', 'success');
-                    return;
-                }
-                left -= 1;
-            }
-            tick();
-            countdownTimer = setInterval(tick, 1000);
-        }
-
-        // ── progress UI ──
-        function setProgress(pct, batchIdx, totalBatches, label, sub) {
-            pct = Math.max(0, Math.min(100, pct));
-            const ring = document.getElementById('progress-ring');
-            const offset = CIRCUMFERENCE - (pct / 100) * CIRCUMFERENCE;
-            ring.style.strokeDashoffset = String(offset);
-            document.getElementById('progress-pct').textContent = pct + '%';
-            document.getElementById('progress-batch').textContent =
-                totalBatches ? `Batch ${Math.min(batchIdx, totalBatches)}/${totalBatches}` : '';
-            if (label) document.getElementById('loading-label').textContent = label;
-            if (sub) document.getElementById('loading-sub').textContent = sub;
-        }
-
-        function showLoading(show) {
-            document.getElementById('loading').classList.toggle('show', show);
-        }
-
-        // ── build payload ──
-        function buildPayload() {
-            const checked = document.querySelectorAll('.doc-checkbox:checked');
-            if (checked.length === 0) {
-                showToast('Please select at least one document.', 'error');
-                return null;
-            }
-            const docIds = Array.from(checked).map(cb => cb.value);
-            const sourceType = document.querySelector('input[name="source_type"]:checked').value;
-
-            let countChoice = selectedCount;
-            let custom = null;
-            if (selectedCount === 'custom') {
-                custom = getCustomCount();
-                if (custom < 10 || custom > 500) {
-                    showToast('Custom count must be between 10 and 500.', 'error');
-                    return null;
-                }
-            } else {
-                const n = parseInt(selectedCount, 10);
-                if (n < 10 || n > 500) {
-                    showToast('Question count must be between 10 and 500.', 'error');
-                    return null;
-                }
-            }
-
-            const payload = {
-                documents: docIds,
-                source_type: sourceType,
-                question_count_choice: countChoice,
-            };
-            if (custom !== null) payload.custom_count = custom;
-
-            if (sourceType === 'range') {
-                payload.page_from = document.getElementById('page-from').value;
-                payload.page_to = document.getElementById('page-to').value;
-            } else if (sourceType === 'specific') {
-                payload.specific_pages = document.getElementById('specific-pages').value;
-            } else if (sourceType === 'random') {
-                payload.random_page_count = document.getElementById('random-count').value;
-            }
-            return payload;
-        }
-
-        // ── step 1: click generate → preflight ──
-        function onGenerateClick() {
-            if (isGenerating) return;
-            const payload = buildPayload();
-            if (!payload) return;
-            pendingPayload = payload;
-
-            const btn = document.getElementById('btn-generate');
-            btn.disabled = true;
-
-            fetch(URL_START, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: JSON.stringify(payload),
-            })
-            .then(async r => {
-                const data = await r.json();
-                if (r.status === 429) {
-                    const wait = data.retry_after || 60;
-                    startCountdown(wait);
-                    showToast(data.error || 'Rate limit reached.', 'error');
-                    return null;
-                }
-                if (!data.success) {
-                    showToast(data.error || 'Could not start.', 'error');
-                    btn.disabled = false;
-                    return null;
-                }
-                return data;
-            })
-            .then(data => {
-                if (!data) return;
-                // show confirm modal with batch plan
-                const p = data.plan;
-                document.getElementById('confirm-msg').innerHTML =
-                    `You requested <strong>${p.total_questions}</strong> questions.<br><br>` +
-                    `This will generate in <strong>${p.total_batches} batch(es)</strong>` +
-                    (p.total_batches > 1 ? ` of up to 20` : ``) + `.<br>` +
-                    `Estimated time: <strong>~${p.estimated_minutes} min</strong>.<br><br>` +
-                    `Daily quota after this: roughly ` +
-                    `<strong>${data.quota.rpd_remaining - p.total_batches}</strong> requests left.`;
-                document.getElementById('confirm-modal').classList.add('show');
-                btn.disabled = false;
-            })
-            .catch(() => {
-                showToast('Network error during pre-check.', 'error');
-                btn.disabled = false;
-            });
-        }
-
-        function closeModal() {
-            document.getElementById('confirm-modal').classList.remove('show');
-        }
-
-        // ── step 2: confirmed → run batches ──
-        async function startGeneration() {
-            closeModal();
-            isGenerating = true;
-            const btn = document.getElementById('btn-generate');
-            btn.disabled = true;
-            btn.classList.add('faded');
-
-            showLoading(true);
-            setProgress(0, 0, 0, 'Starting generation…', 'Locking in your batch plan');
-
-            try {
-                // Re-call start so session is fresh even if they waited
-                const startRes = await fetch(URL_START, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': csrfToken,
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    body: JSON.stringify(pendingPayload),
+    // Source type controls
+    document.querySelectorAll(
+        'input[name="source_type"]'
+    ).forEach((radio) => {
+        radio.addEventListener('change', function () {
+            document.querySelectorAll('.page-options')
+                .forEach((element) => {
+                    element.classList.remove('active');
                 });
-                const startData = await startRes.json();
 
-                if (startRes.status === 429) {
-                    showLoading(false);
-                    startCountdown(startData.retry_after || 60);
-                    showToast(startData.error || 'Rate limited.', 'error');
-                    isGenerating = false;
-                    return;
-                }
-                if (!startData.success) {
-                    showLoading(false);
-                    btn.disabled = false;
-                    btn.classList.remove('faded');
-                    showToast(startData.error || 'Start failed.', 'error');
-                    isGenerating = false;
-                    return;
-                }
+            const option = document.getElementById(
+                `opt-${this.value}`
+            );
 
-                const totalBatches = startData.plan.total_batches;
-                let batchIdx = 0;
-
-                while (batchIdx < totalBatches) {
-                    setProgress(
-                        Math.round((batchIdx / totalBatches) * 100),
-                        batchIdx,
-                        totalBatches,
-                        `Generating Batch ${batchIdx + 1} of ${totalBatches}…`,
-                        `Questions so far will appear after each batch`
-                    );
-
-                    const result = await runOneBatch();
-
-                    if (result.rateLimited) {
-                        // pause, countdown, then retry same batch
-                        setProgress(
-                            Math.round((batchIdx / totalBatches) * 100),
-                            batchIdx,
-                            totalBatches,
-                            'Rate limit hit — cooling down…',
-                            `Resuming in ${result.retry_after}s`
-                        );
-                        await waitWithCountdown(result.retry_after || 12);
-                        continue; // retry same batch_index (server still at same index)
-                    }
-
-                    if (!result.success) {
-                        throw new Error(result.error || 'Batch failed');
-                    }
-
-                    batchIdx = result.batch_index; // server-incremented
-                    setProgress(
-                        result.progress,
-                        batchIdx,
-                        totalBatches,
-                        result.done
-                            ? 'Finalizing…'
-                            : `Completed Batch ${batchIdx} of ${totalBatches}`,
-                        result.done
-                            ? `${result.total_so_far || result.count} questions ready`
-                            : `${result.total_so_far} questions so far`
-                    );
-
-                    if (result.done) {
-                        showToast(`${result.count} questions generated!`, 'success');
-                        setTimeout(() => { window.location.href = URL_REVIEW; }, 700);
-                        return;
-                    }
-
-                    // RPM protection gap (~12s) between batches
-                    if (batchIdx < totalBatches) {
-                        setProgress(
-                            result.progress,
-                            batchIdx,
-                            totalBatches,
-                            `Batch ${batchIdx} done — spacing requests…`,
-                            'Waiting 12s to respect rate limits'
-                        );
-                        await sleep(12000);
-                    }
-                }
-            } catch (err) {
-                console.error(err);
-                showToast(err.message || 'Generation failed.', 'error');
-                showLoading(false);
-                btn.disabled = false;
-                btn.classList.remove('faded');
-                isGenerating = false;
-                refreshQuota();
+            if (option) {
+                option.classList.add('active');
             }
+        });
+    });
+
+    // Preset count buttons
+    document.querySelectorAll('.count-btn').forEach((button) => {
+        button.addEventListener('click', function () {
+            document.querySelectorAll('.count-btn')
+                .forEach((item) => {
+                    item.classList.remove('selected');
+                });
+
+            this.classList.add('selected');
+            selectedCount = this.dataset.count;
+
+            const customGroup = document.getElementById(
+                'custom-count-group'
+            );
+
+            if (selectedCount === 'custom') {
+                customGroup.classList.add('show');
+                updateCustomCountDisplay();
+            } else {
+                customGroup.classList.remove('show');
+            }
+        });
+    });
+
+    const rangeInput = document.getElementById('custom-range');
+    const customInput = document.getElementById('custom-count');
+
+    function updateCustomCountDisplay() {
+        if (!customInput || !rangeInput) {
+            return;
         }
 
-        function runOneBatch() {
-            return fetch(URL_BATCH, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: JSON.stringify({}),
-            }).then(async r => {
-                const data = await r.json();
-                if (r.status === 429) {
-                    return {
-                        success: false,
-                        rateLimited: true,
-                        retry_after: data.retry_after || 60,
-                        error: data.error,
-                    };
+        const count = clampCount(customInput.value);
+
+        customInput.value = count;
+        rangeInput.value = count;
+
+        const rangeValue = document.getElementById('range-val');
+        const batchHint = document.getElementById('batch-hint');
+
+        if (rangeValue) {
+            rangeValue.textContent = `${count} questions`;
+        }
+
+        if (batchHint) {
+            batchHint.textContent = `· ${formatBatchPlan(count)}`;
+        }
+    }
+
+    if (rangeInput) {
+        rangeInput.addEventListener('input', function () {
+            customInput.value = this.value;
+            updateCustomCountDisplay();
+        });
+    }
+
+    if (customInput) {
+        customInput.addEventListener('input', function () {
+            updateCustomCountDisplay();
+        });
+    }
+
+    function getSelectedCount() {
+        if (selectedCount === 'custom') {
+            return clampCount(customInput.value);
+        }
+
+        return clampCount(selectedCount);
+    }
+
+    function buildPayload() {
+        const checked = document.querySelectorAll(
+            '.doc-checkbox:checked'
+        );
+
+        if (checked.length === 0) {
+            showToast(
+                'Please select at least one document.',
+                'error'
+            );
+
+            return null;
+        }
+
+        const count = getSelectedCount();
+
+        if (count < 10 || count > 500) {
+            showToast(
+                'Question count must be between 10 and 500.',
+                'error'
+            );
+
+            return null;
+        }
+
+        const sourceType = document.querySelector(
+            'input[name="source_type"]:checked'
+        ).value;
+
+        const payload = {
+            documents: Array.from(checked).map(
+                (checkbox) => checkbox.value
+            ),
+            source_type: sourceType,
+            question_count_choice: selectedCount,
+        };
+
+        if (selectedCount === 'custom') {
+            payload.custom_count = count;
+        }
+
+        if (sourceType === 'range') {
+            payload.page_from = document.getElementById(
+                'page-from'
+            ).value;
+
+            payload.page_to = document.getElementById(
+                'page-to'
+            ).value;
+        }
+
+        if (sourceType === 'specific') {
+            payload.specific_pages = document.getElementById(
+                'specific-pages'
+            ).value;
+        }
+
+        if (sourceType === 'random') {
+            payload.random_page_count = document.getElementById(
+                'random-count'
+            ).value;
+        }
+
+        return payload;
+    }
+
+    function setProgress(
+        percentage,
+        completedBatches,
+        totalBatches,
+        label,
+        sublabel
+    ) {
+        percentage = Math.max(
+            0,
+            Math.min(100, Math.round(percentage))
+        );
+
+        if (progressRing) {
+            const offset = (
+                CIRCUMFERENCE
+                - (percentage / 100) * CIRCUMFERENCE
+            );
+
+            progressRing.style.strokeDashoffset = String(offset);
+        }
+
+        const percentageElement = document.getElementById(
+            'progress-pct'
+        );
+
+        if (percentageElement) {
+            percentageElement.textContent = `${percentage}%`;
+        }
+
+        const batchElement = document.getElementById(
+            'progress-batch'
+        );
+
+        if (batchElement) {
+            const currentBatch = percentage >= 100
+                ? totalBatches
+                : Math.min(
+                    completedBatches + 1,
+                    totalBatches
+                );
+
+            batchElement.textContent = totalBatches
+                ? `Batch ${currentBatch}/${totalBatches}`
+                : '';
+        }
+
+        const labelElement = document.getElementById(
+            'loading-label'
+        );
+
+        if (labelElement && label) {
+            labelElement.textContent = label;
+        }
+
+        const sublabelElement = document.getElementById(
+            'loading-sub'
+        );
+
+        if (sublabelElement && sublabel) {
+            sublabelElement.textContent = sublabel;
+        }
+    }
+
+    function stopProgressAnimation() {
+        if (progressAnimation) {
+            clearInterval(progressAnimation);
+            progressAnimation = null;
+        }
+    }
+
+    function animateCurrentBatch(
+        startPercentage,
+        maximumPercentage,
+        completedBatches,
+        totalBatches,
+        label,
+        sublabel
+    ) {
+        stopProgressAnimation();
+
+        let percentage = startPercentage;
+
+        setProgress(
+            percentage,
+            completedBatches,
+            totalBatches,
+            label,
+            sublabel
+        );
+
+        progressAnimation = setInterval(() => {
+            if (percentage >= maximumPercentage) {
+                return;
+            }
+
+            percentage += Math.max(
+                0.25,
+                (maximumPercentage - percentage) * 0.035
+            );
+
+            percentage = Math.min(
+                maximumPercentage,
+                percentage
+            );
+
+            setProgress(
+                percentage,
+                completedBatches,
+                totalBatches,
+                label,
+                sublabel
+            );
+        }, 120);
+    }
+
+    function showLoading(show) {
+        const loading = document.getElementById('loading');
+
+        if (loading) {
+            loading.classList.toggle('show', show);
+        }
+    }
+
+    function lockGenerateButton(locked) {
+        const button = document.getElementById(
+            'btn-generate'
+        );
+
+        if (!button) {
+            return;
+        }
+
+        button.disabled = locked;
+        button.classList.toggle('faded', locked);
+    }
+
+    function countdown(seconds, unlockAfterwards) {
+        seconds = Math.max(
+            1,
+            Number.parseInt(seconds, 10) || 1
+        );
+
+        const banner = document.getElementById(
+            'countdown-banner'
+        );
+
+        const timeElement = document.getElementById(
+            'countdown-time'
+        );
+
+        lockGenerateButton(true);
+
+        if (banner) {
+            banner.classList.add('show');
+        }
+
+        if (countdownTimer) {
+            clearTimeout(countdownTimer);
+        }
+
+        return new Promise((resolve) => {
+            function tick() {
+                const minutes = String(
+                    Math.floor(seconds / 60)
+                ).padStart(2, '0');
+
+                const remainingSeconds = String(
+                    seconds % 60
+                ).padStart(2, '0');
+
+                if (timeElement) {
+                    timeElement.textContent =
+                        `${minutes}:${remainingSeconds}`;
                 }
-                return data;
-            });
-        }
 
-        function sleep(ms) {
-            return new Promise(res => setTimeout(res, ms));
-        }
-
-        function waitWithCountdown(seconds) {
-            return new Promise(resolve => {
-                // show banner too
-                startCountdown(seconds);
-                const iv = setInterval(() => {
-                    seconds -= 1;
-                    if (seconds <= 0) {
-                        clearInterval(iv);
-                        resolve();
+                if (seconds <= 0) {
+                    if (banner) {
+                        banner.classList.remove('show');
                     }
-                }, 1000);
-                // also resolve via sleep as backup
-                setTimeout(() => { clearInterval(iv); resolve(); }, (seconds + 1) * 1000);
-            });
+
+                    if (
+                        unlockAfterwards
+                        && !isGenerating
+                    ) {
+                        lockGenerateButton(false);
+                    }
+
+                    resolve();
+                    return;
+                }
+
+                seconds -= 1;
+                countdownTimer = setTimeout(tick, 1000);
+            }
+
+            tick();
+        });
+    }
+
+    function startCountdown(seconds) {
+        countdown(seconds, true);
+    }
+
+    function waitWithCountdown(seconds) {
+        return countdown(seconds, false);
+    }
+
+    async function postJSON(url, body = null) {
+        const options = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        };
+
+        if (body !== null) {
+            options.body = JSON.stringify(body);
         }
 
-        function showToast(msg, type) {
-            const toast = document.getElementById('toast');
-            toast.textContent = msg;
-            toast.className = 'toast ' + type + ' show';
-            setTimeout(() => { toast.classList.remove('show'); }, 4500);
+        const response = await fetch(url, options);
+
+        let data;
+
+        try {
+            data = await response.json();
+        } catch (error) {
+            data = {
+                success: false,
+                error: 'The server returned an invalid response.',
+            };
         }
-    </script>
+
+        return {
+            httpStatus: response.status,
+            ...data,
+        };
+    }
+
+    function onGenerateClick() {
+        if (isGenerating) {
+            return;
+        }
+
+        const payload = buildPayload();
+
+        if (!payload) {
+            return;
+        }
+
+        const count = getSelectedCount();
+        const batchSizes = getBatchSizes(count);
+
+        pendingPayload = payload;
+
+        document.getElementById(
+            'confirm-msg'
+        ).innerHTML = `
+            You requested <strong>${count}</strong> questions.<br><br>
+            The system will generate
+            <strong>${batchSizes.length}</strong> batch(es):
+            <strong>${batchSizes.join(' + ')}</strong>.<br><br>
+            The final result will contain exactly
+            <strong>${count}</strong> questions.
+        `;
+
+        document.getElementById(
+            'confirm-modal'
+        ).classList.add('show');
+    }
+
+    function closeModal() {
+        document.getElementById(
+            'confirm-modal'
+        ).classList.remove('show');
+    }
+
+    async function startGeneration() {
+        closeModal();
+
+        if (!pendingPayload || isGenerating) {
+            return;
+        }
+
+        isGenerating = true;
+        lockGenerateButton(true);
+        showLoading(true);
+
+        const requestedCount = getSelectedCount();
+        const localBatches = getBatchSizes(requestedCount);
+
+        setProgress(
+            0,
+            0,
+            localBatches.length,
+            'Preparing generation...',
+            `Preparing ${requestedCount} questions`
+        );
+
+        try {
+            // The loading overlay is already visible before this request.
+            const startResult = await postJSON(
+                URL_START,
+                pendingPayload
+            );
+
+            if (
+                startResult.httpStatus === 429
+                || startResult.retry_after
+                    && !startResult.success
+            ) {
+                showLoading(false);
+                isGenerating = false;
+
+                showToast(
+                    startResult.error
+                        || 'Generation is temporarily unavailable.',
+                    'error'
+                );
+
+                startCountdown(
+                    startResult.retry_after || 60
+                );
+
+                return;
+            }
+
+            if (!startResult.success) {
+                throw new Error(
+                    startResult.error
+                        || 'Could not start generation.'
+                );
+            }
+
+            const plan = startResult.plan;
+            const totalBatches = plan.total_batches;
+            const totalQuestions = plan.total_questions;
+
+            let completedBatches = 0;
+
+            while (completedBatches < totalBatches) {
+                const currentBatchSize =
+                    plan.batch_sizes[completedBatches];
+
+                const startingPercentage = totalBatches === 1
+                    ? 0
+                    : Math.round(
+                        completedBatches
+                        / totalBatches
+                        * 100
+                    );
+
+                const endingPercentage = totalBatches === 1
+                    ? 95
+                    : Math.max(
+                        startingPercentage,
+                        Math.round(
+                            (completedBatches + 1)
+                            / totalBatches
+                            * 100
+                        ) - 1
+                    );
+
+                animateCurrentBatch(
+                    startingPercentage,
+                    endingPercentage,
+                    completedBatches,
+                    totalBatches,
+                    `Generating Batch ${
+                        completedBatches + 1
+                    } of ${totalBatches}...`,
+                    `Generating ${currentBatchSize} questions`
+                );
+
+                const result = await postJSON(
+                    URL_BATCH,
+                    {}
+                );
+
+                stopProgressAnimation();
+
+                if (
+                    (
+                        result.httpStatus === 429
+                        || result.httpStatus === 503
+                        || result.httpStatus === 409
+                    )
+                    && result.retryable
+                ) {
+                    setProgress(
+                        startingPercentage,
+                        completedBatches,
+                        totalBatches,
+                        'Waiting before retrying...',
+                        result.error || 'Temporary limit reached'
+                    );
+
+                    await waitWithCountdown(
+                        result.retry_after || 8
+                    );
+
+                    continue;
+                }
+
+                if (!result.success) {
+                    throw new Error(
+                        result.error
+                            || 'A question batch failed.'
+                    );
+                }
+
+                completedBatches = result.batch_index;
+
+                setProgress(
+                    result.progress,
+                    completedBatches,
+                    totalBatches,
+                    `Completed Batch ${
+                        completedBatches
+                    } of ${totalBatches}`,
+                    `${
+                        result.total_so_far
+                    } of ${
+                        totalQuestions
+                    } questions generated`
+                );
+
+                if (result.done) {
+                    setProgress(
+                        100,
+                        totalBatches,
+                        totalBatches,
+                        'Generation complete!',
+                        `Exactly ${result.count} questions generated`
+                    );
+
+                    showToast(
+                        `Exactly ${result.count} questions generated.`,
+                        'success'
+                    );
+
+                    setTimeout(() => {
+                        window.location.href = URL_REVIEW;
+                    }, 700);
+
+                    return;
+                }
+
+                const quotaWait =
+                    result.quota
+                    && result.quota.wait_seconds
+                    || 0;
+
+                if (quotaWait > 0) {
+                    await waitWithCountdown(quotaWait);
+                }
+            }
+
+        } catch (error) {
+            stopProgressAnimation();
+            showLoading(false);
+
+            isGenerating = false;
+            lockGenerateButton(false);
+
+            showToast(
+                error.message
+                    || 'Generation failed. Please try again.',
+                'error'
+            );
+        }
+    }
+
+    function showToast(message, type) {
+        const toast = document.getElementById('toast');
+
+        if (!toast) {
+            return;
+        }
+
+        toast.textContent = message;
+        toast.className = `toast ${type} show`;
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 5000);
+    }
+</script>
 </body>
 </html>
