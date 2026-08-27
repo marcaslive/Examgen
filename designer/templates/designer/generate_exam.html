@@ -58,7 +58,6 @@
             color: #fff; font-size: 0.95rem; outline: none;
         }
         .form-input:focus { border-color: #667eea; }
-        select.form-input { appearance: auto; }
 
         .radio-group { display: flex; flex-wrap: wrap; gap: 10px; }
         .radio-option {
@@ -83,29 +82,111 @@
         }
         .count-btn:hover, .count-btn.selected { border-color: #667eea; background: rgba(102,126,234,0.12); color: #667eea; }
 
+        .range-wrap { margin-top: 14px; display: none; }
+        .range-wrap.show { display: block; }
+        .range-labels { display: flex; justify-content: space-between; color: #9999b8; font-size: 0.8rem; margin-bottom: 6px; }
+        input[type="range"] {
+            width: 100%; accent-color: #667eea; height: 6px; cursor: pointer;
+        }
+        .range-val {
+            display: inline-block; margin-top: 8px; padding: 6px 14px;
+            background: rgba(102,126,234,0.15); border-radius: 8px; color: #667eea; font-weight: 600;
+        }
+
+        .quota-bar {
+            display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px;
+            font-size: 0.8rem; color: #9999b8;
+        }
+        .quota-pill {
+            padding: 6px 12px; border-radius: 20px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+        }
+        .quota-pill strong { color: #fff; }
+
         .btn-generate {
             padding: 16px 40px; background: linear-gradient(135deg, #667eea, #764ba2);
             color: #fff; border: none; border-radius: 12px;
             font-size: 1.1rem; font-weight: 600; cursor: pointer; transition: all 0.3s;
-            display: flex; align-items: center; gap: 10px;
+            display: inline-flex; align-items: center; gap: 10px;
         }
-        .btn-generate:hover { opacity: 0.9; transform: translateY(-2px); }
-        .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-generate:hover:not(:disabled):not(.faded) { opacity: 0.9; transform: translateY(-2px); }
+        .btn-generate:disabled, .btn-generate.faded {
+            opacity: 0.4; cursor: not-allowed; transform: none; pointer-events: none; filter: grayscale(0.4);
+        }
 
+        /* ── loading overlay + circular progress ── */
         .loading-overlay {
-            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.7); z-index: 1000;
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.78); z-index: 1000;
             justify-content: center; align-items: center; flex-direction: column;
         }
         .loading-overlay.show { display: flex; }
-        .spinner { width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.1); border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .loading-overlay p { color: #fff; font-size: 1.1rem; }
 
-        .toast { position: fixed; bottom: 30px; right: 30px; padding: 14px 24px; border-radius: 10px; color: #fff; font-size: 0.9rem; z-index: 1001; transform: translateY(100px); opacity: 0; transition: all 0.3s; }
+        .progress-circle {
+            position: relative; width: 140px; height: 140px; margin-bottom: 22px;
+        }
+        .progress-circle svg { transform: rotate(-90deg); }
+        .progress-circle circle {
+            fill: none; stroke-width: 10;
+        }
+        .progress-bg { stroke: rgba(255,255,255,0.08); }
+        .progress-fg {
+            stroke: #667eea; stroke-linecap: round;
+            stroke-dasharray: 377; stroke-dashoffset: 377;
+            transition: stroke-dashoffset 0.45s ease;
+        }
+        .progress-text {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            color: #fff; font-weight: 700; font-size: 1.5rem;
+        }
+        .progress-text small { font-size: 0.75rem; color: #9999b8; font-weight: 500; margin-top: 2px; }
+
+        .loading-label { color: #fff; font-size: 1.05rem; margin-bottom: 6px; }
+        .loading-sub { color: #9999b8; font-size: 0.88rem; }
+
+        /* ── confirm modal ── */
+        .modal-backdrop {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+            z-index: 900; justify-content: center; align-items: center;
+        }
+        .modal-backdrop.show { display: flex; }
+        .modal {
+            background: #1a1a2e; border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px; padding: 28px; max-width: 440px; width: 90%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .modal h3 { color: #fff; margin-bottom: 12px; font-size: 1.15rem; }
+        .modal p { color: #b8b8d4; font-size: 0.92rem; line-height: 1.5; margin-bottom: 18px; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .btn-cancel {
+            padding: 10px 18px; background: transparent; border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px; color: #b8b8d4; cursor: pointer;
+        }
+        .btn-confirm {
+            padding: 10px 18px; background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none; border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer;
+        }
+
+        /* ── countdown banner ── */
+        .countdown-banner {
+            display: none; text-align: center; margin: 18px auto 0; max-width: 480px;
+            padding: 14px 18px; border-radius: 12px;
+            background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.35);
+            color: #ffc107; font-size: 0.95rem;
+        }
+        .countdown-banner.show { display: block; }
+        .countdown-banner .time {
+            font-size: 1.4rem; font-weight: 700; color: #fff; margin-top: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .toast { position: fixed; bottom: 30px; right: 30px; padding: 14px 24px; border-radius: 10px; color: #fff; font-size: 0.9rem; z-index: 1001; transform: translateY(100px); opacity: 0; transition: all 0.3s; max-width: 360px; }
         .toast.show { transform: translateY(0); opacity: 1; }
         .toast.success { background: rgba(46,213,115,0.9); }
         .toast.error { background: rgba(255,71,87,0.9); }
+        .toast.info { background: rgba(102,126,234,0.95); }
 
         .empty-state { text-align: center; padding: 40px; color: #666; }
         .empty-state .icon { font-size: 3rem; margin-bottom: 10px; }
@@ -128,7 +209,7 @@
     <div class="main">
         <div class="page-header">
             <h1>🤖 Generate MCQ Questions</h1>
-            <p>Select your source documents and configure question generation.</p>
+            <p>Select your source documents and configure question generation. (Min 10 · Max 500)</p>
         </div>
 
         {% if documents %}
@@ -194,24 +275,46 @@
 
         <!-- Question Count -->
         <div class="section">
-            <h3>🔢 Number of Questions</h3>
+            <h3>🔢 Number of Questions <span style="color:#9999b8;font-weight:400;font-size:0.85rem;">(10 – 500)</span></h3>
             <div class="count-options">
-                <button class="count-btn" data-count="5">5</button>
                 <button class="count-btn selected" data-count="10">10</button>
                 <button class="count-btn" data-count="20">20</button>
                 <button class="count-btn" data-count="30">30</button>
                 <button class="count-btn" data-count="50">50</button>
                 <button class="count-btn" data-count="100">100</button>
+                <button class="count-btn" data-count="200">200</button>
                 <button class="count-btn" data-count="custom">Custom</button>
             </div>
-            <div class="form-group" id="custom-count-group" style="display:none; margin-top: 12px;">
-                <input type="number" class="form-input" id="custom-count" placeholder="Enter number" min="1" max="500" style="width: 200px;">
+
+            <div class="range-wrap" id="custom-count-group">
+                <div class="range-labels"><span>10</span><span>500</span></div>
+                <input type="range" id="custom-range" min="10" max="500" step="10" value="60">
+                <div>
+                    <span class="range-val" id="range-val">60 questions</span>
+                    <span style="color:#9999b8;font-size:0.8rem;margin-left:8px;" id="batch-hint"></span>
+                </div>
+                <div class="form-group" style="margin-top:12px;">
+                    <label>Or type exact number:</label>
+                    <input type="number" class="form-input" id="custom-count" min="10" max="500" value="60" style="width:200px;">
+                </div>
             </div>
+
+            <div class="quota-bar" id="quota-bar">
+                <span class="quota-pill">RPD: <strong id="q-rpd">–</strong></span>
+                <span class="quota-pill">RPM: <strong id="q-rpm">–</strong></span>
+                <span class="quota-pill">Status: <strong id="q-status">–</strong></span>
+            </div>
+        </div>
+
+        <!-- Countdown (rate limit) -->
+        <div class="countdown-banner" id="countdown-banner">
+            ⏳ Rate limit reached. Generate unlocks in
+            <div class="time" id="countdown-time">00:00</div>
         </div>
 
         <!-- Generate Button -->
         <div style="text-align: center; margin-top: 30px;">
-            <button class="btn-generate" id="btn-generate" onclick="generateQuestions()">
+            <button class="btn-generate" id="btn-generate" onclick="onGenerateClick()">
                 🤖 Generate Questions
             </button>
         </div>
@@ -224,23 +327,62 @@
         {% endif %}
     </div>
 
-    <div class="loading-overlay" id="loading">
-        <div class="spinner"></div>
-        <p>Generating questions... This may take a moment.</p>
+    <!-- Confirm modal -->
+    <div class="modal-backdrop" id="confirm-modal">
+        <div class="modal">
+            <h3>⚡ Confirm Generation</h3>
+            <p id="confirm-msg">—</p>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-confirm" onclick="startGeneration()">Proceed</button>
+            </div>
+        </div>
     </div>
+
+    <!-- Loading overlay with circular % -->
+    <div class="loading-overlay" id="loading">
+        <div class="progress-circle">
+            <svg width="140" height="140" viewBox="0 0 140 140">
+                <circle class="progress-bg" cx="70" cy="70" r="60"></circle>
+                <circle class="progress-fg" id="progress-ring" cx="70" cy="70" r="60"></circle>
+            </svg>
+            <div class="progress-text">
+                <span id="progress-pct">0%</span>
+                <small id="progress-batch">Batch 0/0</small>
+            </div>
+        </div>
+        <p class="loading-label" id="loading-label">Preparing…</p>
+        <p class="loading-sub" id="loading-sub">Please wait</p>
+    </div>
+
     <div class="toast" id="toast"></div>
 
     <script>
         const csrfToken = '{{ csrf_token }}';
-        let selectedCount = '10';
+        const URL_START  = '{% url "designer:generate_start" %}';
+        const URL_BATCH  = '{% url "designer:generate_batch" %}';
+        const URL_QUOTA  = '{% url "designer:generate_quota" %}';
+        const URL_REVIEW = '{% url "designer:review_questions" %}';
 
-        // Document selection toggle
+        const CIRCUMFERENCE = 2 * Math.PI * 60; // r=60
+        let selectedCount = '10';
+        let pendingPayload = null;
+        let countdownTimer = null;
+        let isGenerating = false;
+
+        // ── init ring ──
+        (function initRing() {
+            const ring = document.getElementById('progress-ring');
+            ring.style.strokeDasharray = String(CIRCUMFERENCE);
+            ring.style.strokeDashoffset = String(CIRCUMFERENCE);
+        })();
+
+        // ── document selection ──
         document.querySelectorAll('.doc-checkbox').forEach(cb => {
-            cb.addEventListener('change', function() {
+            cb.addEventListener('change', function () {
                 this.closest('.doc-select-item').classList.toggle('selected', this.checked);
             });
         });
-
         function selectAll() {
             document.querySelectorAll('.doc-checkbox').forEach(cb => {
                 cb.checked = true;
@@ -254,41 +396,175 @@
             });
         }
 
-        // Source type toggle
+        // ── source type ──
         document.querySelectorAll('input[name="source_type"]').forEach(radio => {
-            radio.addEventListener('change', function() {
+            radio.addEventListener('change', function () {
                 document.querySelectorAll('.page-options').forEach(el => el.classList.remove('active'));
                 const opt = document.getElementById('opt-' + this.value);
                 if (opt) opt.classList.add('active');
             });
         });
 
-        // Count buttons
+        // ── count buttons ──
         document.querySelectorAll('.count-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', function () {
                 document.querySelectorAll('.count-btn').forEach(b => b.classList.remove('selected'));
                 this.classList.add('selected');
                 selectedCount = this.dataset.count;
-                document.getElementById('custom-count-group').style.display =
-                    selectedCount === 'custom' ? 'block' : 'none';
+                const customWrap = document.getElementById('custom-count-group');
+                if (selectedCount === 'custom') {
+                    customWrap.classList.add('show');
+                    updateBatchHint(getCustomCount());
+                } else {
+                    customWrap.classList.remove('show');
+                    updateBatchHint(parseInt(selectedCount, 10));
+                }
             });
         });
 
-        function generateQuestions() {
+        const rangeEl = document.getElementById('custom-range');
+        const countEl = document.getElementById('custom-count');
+        const rangeVal = document.getElementById('range-val');
+
+        function clampCount(n) {
+            n = parseInt(n, 10) || 10;
+            return Math.max(10, Math.min(500, n));
+        }
+        function getCustomCount() {
+            return clampCount(countEl.value);
+        }
+        function updateBatchHint(n) {
+            n = clampCount(n);
+            const batches = n <= 50 ? 1 : Math.ceil(n / 20);
+            const hint = document.getElementById('batch-hint');
+            if (hint) {
+                hint.textContent = batches === 1
+                    ? '· 1 batch (no split)'
+                    : `· ${batches} batches of ~20`;
+            }
+        }
+        if (rangeEl) {
+            rangeEl.addEventListener('input', () => {
+                const v = clampCount(rangeEl.value);
+                rangeVal.textContent = v + ' questions';
+                countEl.value = v;
+                updateBatchHint(v);
+            });
+        }
+        if (countEl) {
+            countEl.addEventListener('input', () => {
+                const v = clampCount(countEl.value);
+                countEl.value = v;
+                rangeEl.value = v;
+                rangeVal.textContent = v + ' questions';
+                updateBatchHint(v);
+            });
+        }
+
+        // ── quota display ──
+        function refreshQuota() {
+            return fetch(URL_QUOTA, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return data;
+                    document.getElementById('q-rpd').textContent =
+                        `${data.rpd_remaining}/${data.rpd_limit} left`;
+                    document.getElementById('q-rpm').textContent =
+                        `${data.rpm_remaining}/${data.rpm_limit} left`;
+                    document.getElementById('q-status').textContent =
+                        data.can_request ? 'Ready' : `Wait ${data.wait_seconds}s`;
+
+                    if (!data.can_request && data.wait_seconds > 0 && !isGenerating) {
+                        startCountdown(data.wait_seconds);
+                    }
+                    return data;
+                })
+                .catch(() => null);
+        }
+        refreshQuota();
+        setInterval(refreshQuota, 30000);
+
+        // ── countdown / fade button ──
+        function startCountdown(seconds) {
+            const banner = document.getElementById('countdown-banner');
+            const timeEl = document.getElementById('countdown-time');
+            const btn = document.getElementById('btn-generate');
+            btn.classList.add('faded');
+            btn.disabled = true;
+            banner.classList.add('show');
+
+            if (countdownTimer) clearInterval(countdownTimer);
+            let left = seconds;
+
+            function tick() {
+                const m = String(Math.floor(left / 60)).padStart(2, '0');
+                const s = String(left % 60).padStart(2, '0');
+                timeEl.textContent = `${m}:${s}`;
+                if (left <= 0) {
+                    clearInterval(countdownTimer);
+                    countdownTimer = null;
+                    banner.classList.remove('show');
+                    btn.classList.remove('faded');
+                    btn.disabled = false;
+                    refreshQuota();
+                    showToast('You can generate again now.', 'success');
+                    return;
+                }
+                left -= 1;
+            }
+            tick();
+            countdownTimer = setInterval(tick, 1000);
+        }
+
+        // ── progress UI ──
+        function setProgress(pct, batchIdx, totalBatches, label, sub) {
+            pct = Math.max(0, Math.min(100, pct));
+            const ring = document.getElementById('progress-ring');
+            const offset = CIRCUMFERENCE - (pct / 100) * CIRCUMFERENCE;
+            ring.style.strokeDashoffset = String(offset);
+            document.getElementById('progress-pct').textContent = pct + '%';
+            document.getElementById('progress-batch').textContent =
+                totalBatches ? `Batch ${Math.min(batchIdx, totalBatches)}/${totalBatches}` : '';
+            if (label) document.getElementById('loading-label').textContent = label;
+            if (sub) document.getElementById('loading-sub').textContent = sub;
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('show', show);
+        }
+
+        // ── build payload ──
+        function buildPayload() {
             const checked = document.querySelectorAll('.doc-checkbox:checked');
             if (checked.length === 0) {
                 showToast('Please select at least one document.', 'error');
-                return;
+                return null;
             }
-
             const docIds = Array.from(checked).map(cb => cb.value);
             const sourceType = document.querySelector('input[name="source_type"]:checked').value;
+
+            let countChoice = selectedCount;
+            let custom = null;
+            if (selectedCount === 'custom') {
+                custom = getCustomCount();
+                if (custom < 10 || custom > 500) {
+                    showToast('Custom count must be between 10 and 500.', 'error');
+                    return null;
+                }
+            } else {
+                const n = parseInt(selectedCount, 10);
+                if (n < 10 || n > 500) {
+                    showToast('Question count must be between 10 and 500.', 'error');
+                    return null;
+                }
+            }
 
             const payload = {
                 documents: docIds,
                 source_type: sourceType,
-                question_count_choice: selectedCount,
+                question_count_choice: countChoice,
             };
+            if (custom !== null) payload.custom_count = custom;
 
             if (sourceType === 'range') {
                 payload.page_from = document.getElementById('page-from').value;
@@ -298,16 +574,20 @@
             } else if (sourceType === 'random') {
                 payload.random_page_count = document.getElementById('random-count').value;
             }
+            return payload;
+        }
 
-            if (selectedCount === 'custom') {
-                payload.custom_count = document.getElementById('custom-count').value;
-            }
+        // ── step 1: click generate → preflight ──
+        function onGenerateClick() {
+            if (isGenerating) return;
+            const payload = buildPayload();
+            if (!payload) return;
+            pendingPayload = payload;
 
             const btn = document.getElementById('btn-generate');
             btn.disabled = true;
-            document.getElementById('loading').classList.add('show');
 
-            fetch('{% url "designer:generate_questions" %}', {
+            fetch(URL_START, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -316,21 +596,198 @@
                 },
                 body: JSON.stringify(payload),
             })
-            .then(r => r.json())
-            .then(data => {
-                document.getElementById('loading').classList.remove('show');
-                btn.disabled = false;
-                if (data.success) {
-                    showToast(data.count + ' questions generated!', 'success');
-                    setTimeout(() => { window.location.href = '{% url "designer:review_questions" %}'; }, 600);
-                } else {
-                    showToast(data.error, 'error');
+            .then(async r => {
+                const data = await r.json();
+                if (r.status === 429) {
+                    const wait = data.retry_after || 60;
+                    startCountdown(wait);
+                    showToast(data.error || 'Rate limit reached.', 'error');
+                    return null;
                 }
+                if (!data.success) {
+                    showToast(data.error || 'Could not start.', 'error');
+                    btn.disabled = false;
+                    return null;
+                }
+                return data;
             })
-            .catch(err => {
-                document.getElementById('loading').classList.remove('show');
+            .then(data => {
+                if (!data) return;
+                // show confirm modal with batch plan
+                const p = data.plan;
+                document.getElementById('confirm-msg').innerHTML =
+                    `You requested <strong>${p.total_questions}</strong> questions.<br><br>` +
+                    `This will generate in <strong>${p.total_batches} batch(es)</strong>` +
+                    (p.total_batches > 1 ? ` of up to 20` : ``) + `.<br>` +
+                    `Estimated time: <strong>~${p.estimated_minutes} min</strong>.<br><br>` +
+                    `Daily quota after this: roughly ` +
+                    `<strong>${data.quota.rpd_remaining - p.total_batches}</strong> requests left.`;
+                document.getElementById('confirm-modal').classList.add('show');
                 btn.disabled = false;
-                showToast('Generation failed. Please try again.', 'error');
+            })
+            .catch(() => {
+                showToast('Network error during pre-check.', 'error');
+                btn.disabled = false;
+            });
+        }
+
+        function closeModal() {
+            document.getElementById('confirm-modal').classList.remove('show');
+        }
+
+        // ── step 2: confirmed → run batches ──
+        async function startGeneration() {
+            closeModal();
+            isGenerating = true;
+            const btn = document.getElementById('btn-generate');
+            btn.disabled = true;
+            btn.classList.add('faded');
+
+            showLoading(true);
+            setProgress(0, 0, 0, 'Starting generation…', 'Locking in your batch plan');
+
+            try {
+                // Re-call start so session is fresh even if they waited
+                const startRes = await fetch(URL_START, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify(pendingPayload),
+                });
+                const startData = await startRes.json();
+
+                if (startRes.status === 429) {
+                    showLoading(false);
+                    startCountdown(startData.retry_after || 60);
+                    showToast(startData.error || 'Rate limited.', 'error');
+                    isGenerating = false;
+                    return;
+                }
+                if (!startData.success) {
+                    showLoading(false);
+                    btn.disabled = false;
+                    btn.classList.remove('faded');
+                    showToast(startData.error || 'Start failed.', 'error');
+                    isGenerating = false;
+                    return;
+                }
+
+                const totalBatches = startData.plan.total_batches;
+                let batchIdx = 0;
+
+                while (batchIdx < totalBatches) {
+                    setProgress(
+                        Math.round((batchIdx / totalBatches) * 100),
+                        batchIdx,
+                        totalBatches,
+                        `Generating Batch ${batchIdx + 1} of ${totalBatches}…`,
+                        `Questions so far will appear after each batch`
+                    );
+
+                    const result = await runOneBatch();
+
+                    if (result.rateLimited) {
+                        // pause, countdown, then retry same batch
+                        setProgress(
+                            Math.round((batchIdx / totalBatches) * 100),
+                            batchIdx,
+                            totalBatches,
+                            'Rate limit hit — cooling down…',
+                            `Resuming in ${result.retry_after}s`
+                        );
+                        await waitWithCountdown(result.retry_after || 12);
+                        continue; // retry same batch_index (server still at same index)
+                    }
+
+                    if (!result.success) {
+                        throw new Error(result.error || 'Batch failed');
+                    }
+
+                    batchIdx = result.batch_index; // server-incremented
+                    setProgress(
+                        result.progress,
+                        batchIdx,
+                        totalBatches,
+                        result.done
+                            ? 'Finalizing…'
+                            : `Completed Batch ${batchIdx} of ${totalBatches}`,
+                        result.done
+                            ? `${result.total_so_far || result.count} questions ready`
+                            : `${result.total_so_far} questions so far`
+                    );
+
+                    if (result.done) {
+                        showToast(`${result.count} questions generated!`, 'success');
+                        setTimeout(() => { window.location.href = URL_REVIEW; }, 700);
+                        return;
+                    }
+
+                    // RPM protection gap (~12s) between batches
+                    if (batchIdx < totalBatches) {
+                        setProgress(
+                            result.progress,
+                            batchIdx,
+                            totalBatches,
+                            `Batch ${batchIdx} done — spacing requests…`,
+                            'Waiting 12s to respect rate limits'
+                        );
+                        await sleep(12000);
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                showToast(err.message || 'Generation failed.', 'error');
+                showLoading(false);
+                btn.disabled = false;
+                btn.classList.remove('faded');
+                isGenerating = false;
+                refreshQuota();
+            }
+        }
+
+        function runOneBatch() {
+            return fetch(URL_BATCH, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({}),
+            }).then(async r => {
+                const data = await r.json();
+                if (r.status === 429) {
+                    return {
+                        success: false,
+                        rateLimited: true,
+                        retry_after: data.retry_after || 60,
+                        error: data.error,
+                    };
+                }
+                return data;
+            });
+        }
+
+        function sleep(ms) {
+            return new Promise(res => setTimeout(res, ms));
+        }
+
+        function waitWithCountdown(seconds) {
+            return new Promise(resolve => {
+                // show banner too
+                startCountdown(seconds);
+                const iv = setInterval(() => {
+                    seconds -= 1;
+                    if (seconds <= 0) {
+                        clearInterval(iv);
+                        resolve();
+                    }
+                }, 1000);
+                // also resolve via sleep as backup
+                setTimeout(() => { clearInterval(iv); resolve(); }, (seconds + 1) * 1000);
             });
         }
 
@@ -338,7 +795,7 @@
             const toast = document.getElementById('toast');
             toast.textContent = msg;
             toast.className = 'toast ' + type + ' show';
-            setTimeout(() => { toast.classList.remove('show'); }, 4000);
+            setTimeout(() => { toast.classList.remove('show'); }, 4500);
         }
     </script>
 </body>

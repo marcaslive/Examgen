@@ -24,7 +24,9 @@ from .document_views import (
 # Exams
 from .exam_views import (
     generate_exam_view,
-    generate_questions_api,
+    generate_start_api,      # <-- Added
+    generate_batch_api,      # <-- Added
+    generate_quota_api,      # <-- Added
     review_questions_view,
     save_exam_view,
     exam_list_view,

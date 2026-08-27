@@ -6,13 +6,15 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.db import transaction
 
 from ..models import Document, Exam, Question, GradeRule
 from ..forms import ExamForm, QuestionForm, GenerateQuestionsForm
 from ..services.pdf_service import PDFService
-from ..services.question_generator import QuestionGenerator
+
+# Import the new Manager
+from ..services.question_generator import ExamGenerationManager
 
 
 @login_required
@@ -27,141 +29,53 @@ def generate_exam_view(request):
     }
     return render(request, 'designer/generate_exam.html', context)
 
+# ============================================================
+# NEW BATCH GENERATION ENDPOINTS
+# ============================================================
 
 @login_required
 @require_POST
-def generate_questions_api(request):
-    """AJAX endpoint to generate questions from selected documents."""
+def generate_start_api(request):
+    """AJAX endpoint to initialize generation, check limits, and build batch plan."""
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     try:
-        data = json.loads(request.body)
+        payload = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid request data.'})
+        return JsonResponse({"success": False, "error": "Invalid request data."}, status=400)
 
-    doc_ids = data.get('documents', [])
-    source_type = data.get('source_type', 'entire')
-    page_from = data.get('page_from')
-    page_to = data.get('page_to')
-    specific_pages = data.get('specific_pages', '')
-    random_page_count = data.get('random_page_count')
-    question_count_choice = data.get('question_count_choice', '10')
-    custom_count = data.get('custom_count')
+    # Stash selected documents for the review/save page to use later
+    request.session['generation_doc_ids'] = payload.get("documents", [])
 
-    if not doc_ids:
-        return JsonResponse({'success': False, 'error': 'No documents selected.'})
+    status_code, response_data = ExamGenerationManager.start_generation(request, payload)
+    return JsonResponse(response_data, status=status_code)
 
-    # Determine number of questions
-    if question_count_choice == 'custom':
-        try:
-            num_questions = int(custom_count)
-            if num_questions < 1 or num_questions > 500:
-                return JsonResponse({'success': False, 'error': 'Custom count must be between 1 and 500.'})
-        except (TypeError, ValueError):
-            return JsonResponse({'success': False, 'error': 'Invalid custom question count.'})
-    else:
-        try:
-            num_questions = int(question_count_choice)
-        except ValueError:
-            num_questions = 10
 
-    # Collect text from all selected documents
-    all_text_by_page = {}  # {(doc_id, page_num): text}
-    doc_map = {}  # doc_id -> document
+@login_required
+@require_POST
+def generate_batch_api(request):
+    """AJAX endpoint to process exactly one batch of questions."""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
-    documents = Document.objects.filter(
-        id__in=doc_ids, uploaded_by=request.user, status='ready'
-    )
+    status_code, response_data = ExamGenerationManager.process_next_batch(request)
+    return JsonResponse(response_data, status=status_code)
 
-    if not documents.exists():
-        return JsonResponse({'success': False, 'error': 'No valid documents found.'})
 
-    for doc in documents:
-        doc_map[str(doc.id)] = doc
-        file_path = doc.file.path
+@login_required
+@require_GET
+def generate_quota_api(request):
+    """AJAX endpoint to check remaining AI limits."""
+    if not request.user.is_staff:
+        return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
-        # Determine which pages to extract
-        if source_type == 'entire':
-            pages = None  # All pages
-        elif source_type == 'range':
-            try:
-                p_from = int(page_from) if page_from else 1
-                p_to = int(page_to) if page_to else doc.page_count
-                pages = list(range(p_from, p_to + 1))
-            except (TypeError, ValueError):
-                pages = None
-        elif source_type == 'specific':
-            pages = PDFService.parse_specific_pages(specific_pages or '')
-            if not pages:
-                return JsonResponse({'success': False, 'error': 'No valid page numbers specified.'})
-        elif source_type == 'random':
-            try:
-                count = int(random_page_count) if random_page_count else 5
-                pages = PDFService.get_random_pages(file_path, count)
-            except (TypeError, ValueError):
-                pages = PDFService.get_random_pages(file_path, 5)
-        else:
-            pages = None
+    return JsonResponse({"success": True, **ExamGenerationManager.get_quota_status()})
 
-        extracted = PDFService.extract_text_from_pages(file_path, pages)
-        for page_num, text in extracted.items():
-            all_text_by_page[(str(doc.id), page_num)] = text
 
-    if not all_text_by_page:
-        return JsonResponse({
-            'success': False,
-            'error': 'Could not extract text from the selected pages. The PDF may be scanned or empty.'
-        })
-
-    # Flatten to simple page->text dict for generator, keeping track of source
-    simple_text = {}
-    page_to_doc = {}  # page_key -> doc_id
-    counter = 1
-    for (doc_id, page_num), text in all_text_by_page.items():
-        # Use a unique key to avoid collisions between documents
-        key = counter
-        simple_text[key] = f"[Source: {doc_map[doc_id].title}, Page {page_num}]\n{text}"
-        page_to_doc[key] = (doc_id, page_num)
-        counter += 1
-
-    # Generate questions
-    generator = QuestionGenerator()
-    raw_questions = generator.generate_questions(simple_text, num_questions)
-
-    if not raw_questions:
-        return JsonResponse({
-            'success': False,
-            'error': 'Could not generate questions. Try selecting more content or fewer questions.'
-        })
-
-    # Map source pages back to documents
-    page_keys = list(page_to_doc.keys())
-    for q in raw_questions:
-        source_page = q.get('source_page')
-        if source_page and source_page in page_to_doc:
-            doc_id, actual_page = page_to_doc[source_page]
-            q['source_document_id'] = doc_id
-            q['source_page'] = actual_page
-        elif page_keys:
-            # Default to first page
-            doc_id, actual_page = page_to_doc[page_keys[0]]
-            q['source_document_id'] = doc_id
-            q['source_page'] = actual_page
-        else:
-            q['source_document_id'] = None
-            q['source_page'] = None
-
-    # Store in session for review before saving
-    request.session['generated_questions'] = raw_questions
-    request.session['generation_doc_ids'] = doc_ids
-
-    return JsonResponse({
-        'success': True,
-        'questions': raw_questions,
-        'count': len(raw_questions),
-    })
-
+# ============================================================
+# EXISTING EXAM VIEWS
+# ============================================================
 
 @login_required
 def review_questions_view(request):
@@ -169,7 +83,8 @@ def review_questions_view(request):
     if not request.user.is_staff:
         return redirect('designer:user_dashboard')
 
-    questions = request.session.get('generated_questions', [])
+    # Look for both the old key and the new key for compatibility
+    questions = request.session.get('review_questions') or request.session.get('generated_questions', [])
     doc_ids = request.session.get('generation_doc_ids', [])
 
     if not questions:
@@ -307,6 +222,7 @@ def save_exam_view(request):
                     )
 
             # Clear session data
+            request.session.pop('review_questions', None)
             request.session.pop('generated_questions', None)
             request.session.pop('generation_doc_ids', None)
 

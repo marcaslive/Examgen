@@ -2,9 +2,10 @@
 
 from django.urls import path
 from . import views
-app_name = 'designer'
-urlpatterns = [
 
+app_name = 'designer'
+
+urlpatterns = [
     # ─── Home ───────────────────────────────────────
     path('', views.home, name='home'),
 
@@ -24,9 +25,12 @@ urlpatterns = [
     path('documents/<uuid:doc_id>/delete/', views.document_delete_view, name='document_delete'),
     path('documents/reset/', views.documents_reset_view, name='documents_reset'),
 
-    # ─── Exam Generation ────────────────────────────
+    # ─── Exam Generation (UPDATED FOR BATCHING) ─────
     path('generate/', views.generate_exam_view, name='generate_exam'),
-    path('generate/questions/', views.generate_questions_api, name='generate_questions'),
+    path('generate/start/', views.generate_start_api, name='generate_start'),
+    path('generate/batch/', views.generate_batch_api, name='generate_batch'),
+    path('generate/quota/', views.generate_quota_api, name='generate_quota'),
+    
     path('generate/review/', views.review_questions_view, name='review_questions'),
     path('generate/save/', views.save_exam_view, name='save_exam'),
 
