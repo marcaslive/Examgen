@@ -79,28 +79,29 @@ def generate_quota_api(request):
 
 @login_required
 def review_questions_view(request):
-    """Review generated questions before creating an exam."""
     if not request.user.is_staff:
         return redirect('designer:user_dashboard')
 
-    # Look for both the old key and the new key for compatibility
-    questions = request.session.get('review_questions') or request.session.get('generated_questions', [])
-    doc_ids = request.session.get('generation_doc_ids', [])
+    review_data = ExamGenerationManager.get_review_data(request)
+    questions = review_data.get('questions') or []
+    doc_ids = review_data.get('document_ids') or request.session.get('generation_doc_ids', [])
 
     if not questions:
         return redirect('designer:generate_exam')
 
+    # Keep a session copy so template/JS always has them
+    request.session['generated_questions'] = questions
+    request.session.modified = True
+
     documents = Document.objects.filter(id__in=doc_ids)
     users = User.objects.filter(is_staff=False, is_active=True)
 
-    context = {
+    return render(request, 'designer/review_questions.html', {
         'questions': questions,
         'documents': documents,
         'users': users,
         'exam_form': ExamForm(),
-    }
-    return render(request, 'designer/review_questions.html', context)
-
+    })
 
 @login_required
 @require_POST
