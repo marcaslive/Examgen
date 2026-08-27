@@ -234,6 +234,9 @@ AI_MODEL = os.environ.get(
     "gemini-3.6-flash"
 )
 
+HUGGINGFACE_TOKEN = os.getenv('HUGGINGFACE_TOKEN', '')
+
+
 
 # ============================================================
 # OPENAI (OPTIONAL FALLBACK)
