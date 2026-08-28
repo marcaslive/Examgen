@@ -46,32 +46,25 @@ GEMINI_MODELS_CASCADE = [
 GEMINI_MAX_OUTPUT_TOKENS = 8192
 GEMINI_INPUT_CHARS = 40000
 
-# HF free serverless is strict about max_tokens
-HF_MAX_TOKENS = 2048
-HF_INPUT_CHARS = 18000
+# HF free serverless is strict
+HF_MAX_TOKENS = 1024   # smaller = fewer 400s / faster
+HF_INPUT_CHARS = 12000
 HTTP_TIMEOUT = 30
 
 MIN_REQUEST_INTERVAL = 1.5
-MAX_FAIL_STREAK = 6
+MAX_FAIL_STREAK = 5
 RATE_LIMIT_BACKOFF = 10
 
 TASK_TIMEOUT = 7200
 REVIEW_TIMEOUT = 7200
 
-# ONLY models that work with OpenAI-style chat completions on HF router
+# Chat models only — avoid Mistral/Gemma on hf-inference chat if unsupported
+# You can override with settings.HF_CHAT_MODELS = "org/model,org/model2"
+_default_hf = "Qwen/Qwen2.5-7B-Instruct,HuggingFaceH4/zephyr-7b-beta"
 HF_CHAT_MODELS = [
-    "Qwen/Qwen2.5-7B-Instruct",
-    "HuggingFaceH4/zephyr-7b-beta",
-    "meta-llama/Meta-Llama-3-8B-Instruct",
-    "microsoft/Phi-3.5-mini-instruct",
-    "google/gemma-2-2b-it",
-]
-
-# Instruct models for classic text-generation API (NOT chat)
-HF_TEXT_MODELS = [
-    "mistralai/Mistral-7B-Instruct-v0.3",
-    "mistralai/Mistral-7B-Instruct-v0.2",
-    "google/flan-t5-large",
+    m.strip()
+    for m in str(getattr(settings, "HF_CHAT_MODELS", _default_hf) or _default_hf).split(",")
+    if m.strip()
 ]
 
 
@@ -96,11 +89,9 @@ class GeminiRateLimiter:
         wait_sec = 0
         if last and (now - last) < MIN_REQUEST_INTERVAL:
             wait_sec = int(MIN_REQUEST_INTERVAL - (now - last)) + 1
-
         keys = parse_keys(getattr(settings, "GEMINI_API_KEY", "") or "")
         num_keys = max(1, len(keys))
         day_used = int(cache.get(cls._day_key(), 0) or 0)
-
         return {
             "rpd_used": day_used,
             "rpd_limit": 1500 * num_keys,
@@ -126,6 +117,7 @@ class QuestionGenerator:
         self.hf_token = (getattr(settings, "HUGGINGFACE_TOKEN", "") or "").strip()
         self.last_error = ""
         self.last_provider = ""
+        self.gemini_error = ""  # keep Gemini failure reason visible
 
     @property
     def available(self) -> bool:
@@ -144,7 +136,9 @@ class QuestionGenerator:
             return []
 
         full_text = self._text_to_str(text)
-        prompt = self._build_prompt(full_text[:GEMINI_INPUT_CHARS], num_questions, batch_index, total_batches)
+        prompt = self._build_prompt(
+            full_text[:GEMINI_INPUT_CHARS], num_questions, batch_index, total_batches
+        )
 
         safety_rest = [
             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -153,7 +147,7 @@ class QuestionGenerator:
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
         ]
 
-        # -------- GEMINI PRIMARY --------
+        # -------- GEMINI (primary) --------
         for key in self.gemini_keys:
             for model in GEMINI_MODELS_CASCADE:
                 if HAS_GEMINI_SDK:
@@ -165,21 +159,25 @@ class QuestionGenerator:
                             max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS,
                             response_mime_type="application/json",
                         )
-                        resp = client.models.generate_content(model=model, contents=prompt, config=config)
+                        resp = client.models.generate_content(
+                            model=model, contents=prompt, config=config
+                        )
                         content = getattr(resp, "text", "") or ""
                         qs = self._parse_response(content)
                         if qs:
                             GeminiRateLimiter.record_call()
                             self.last_provider = f"gemini-sdk:{model}"
                             return qs[:num_questions]
+                        self.gemini_error = f"SDK {model}: empty/unparseable"
                     except Exception as e:
-                        self.last_error = f"SDK {model}: {e}"
+                        self.gemini_error = f"SDK {model}: {e}"
+                        self.last_error = self.gemini_error
                         logger.warning(self.last_error)
 
                 try:
                     logger.info(f"Gemini REST → {model} batch {batch_index+1}/{total_batches}")
                     url = (
-                        f"https://generativelanguage.googleapis.com/v1beta/models/"
+                        "https://generativelanguage.googleapis.com/v1beta/models/"
                         f"{model}:generateContent?key={key}"
                     )
                     payload = {
@@ -196,7 +194,7 @@ class QuestionGenerator:
                         data = r.json()
                         cands = data.get("candidates") or []
                         if not cands:
-                            self.last_error = f"Gemini {model}: empty candidates"
+                            self.gemini_error = f"REST {model}: no candidates"
                             continue
                         parts = (cands[0].get("content") or {}).get("parts") or []
                         content = parts[0].get("text", "") if parts else ""
@@ -205,56 +203,79 @@ class QuestionGenerator:
                             GeminiRateLimiter.record_call()
                             self.last_provider = f"gemini-rest:{model}"
                             return qs[:num_questions]
-                        self.last_error = f"Gemini {model}: unparseable output"
+                        self.gemini_error = f"REST {model}: unparseable"
                     elif r.status_code == 429:
-                        self.last_error = f"Gemini {model}: 429 RATE LIMITED"
+                        self.gemini_error = f"REST {model}: 429 RATE LIMITED"
+                        self.last_error = self.gemini_error
                         logger.warning(self.last_error)
                     else:
                         try:
-                            msg = (r.json().get("error") or {}).get("message") or r.text[:150]
+                            msg = (r.json().get("error") or {}).get("message") or r.text[:160]
                         except Exception:
-                            msg = r.text[:150]
-                        self.last_error = f"Gemini {model} ({r.status_code}): {msg}"
+                            msg = r.text[:160]
+                        self.gemini_error = f"REST {model} ({r.status_code}): {msg}"
+                        self.last_error = self.gemini_error
                         logger.warning(self.last_error)
                 except requests.exceptions.RequestException as e:
-                    self.last_error = f"Gemini {model}: connection error ({e.__class__.__name__})"
-                    logger.warning(self.last_error)
+                    self.gemini_error = f"REST {model}: connection ({e.__class__.__name__})"
+                    self.last_error = self.gemini_error
                 except Exception as e:
-                    self.last_error = f"Gemini {model}: {e}"
-                    logger.warning(self.last_error)
+                    self.gemini_error = f"REST {model}: {e}"
+                    self.last_error = self.gemini_error
 
-        # -------- HF FALLBACK --------
+        # -------- HF backup (short, skip unsupported fast) --------
         if self.hf_token:
             qs = self._generate_hf(full_text, num_questions, batch_index, total_batches)
             if qs:
                 return qs[:num_questions]
 
+        # Prefer showing Gemini root cause if HF also failed
+        if self.gemini_error:
+            self.last_error = (
+                f"Gemini failed ({self.gemini_error}) | "
+                f"HF failed ({self.last_error or 'no HF success'})"
+            )
+        elif not self.last_error:
+            self.last_error = "All AI providers failed."
         return []
 
-    def _hf_error_message(self, r: requests.Response) -> str:
+    def _hf_msg(self, r: requests.Response) -> str:
         try:
             j = r.json()
             err = j.get("error", j)
             if isinstance(err, dict):
-                return str(err.get("message") or err)[:180]
-            return str(err)[:180]
+                return str(err.get("message") or err)[:200]
+            return str(err)[:200]
         except Exception:
-            return (r.text or "")[:180]
+            return (r.text or "")[:200]
 
     def _generate_hf(self, full_text, num_questions, batch_index, total_batches) -> List[dict]:
-        prompt = self._build_prompt(full_text[:HF_INPUT_CHARS], num_questions, batch_index, total_batches)
+        """Only OpenAI-compatible chat — no broken hf-inference model spam."""
+        prompt = self._build_prompt(
+            full_text[:HF_INPUT_CHARS], num_questions, batch_index, total_batches
+        )
         headers = {
             "Authorization": f"Bearer {self.hf_token}",
             "Content-Type": "application/json",
         }
 
+        # Single stable chat endpoint (router OpenAI-compatible)
         chat_urls = [
             "https://router.huggingface.co/v1/chat/completions",
-            "https://router.huggingface.co/hf-inference/v1/chat/completions",
         ]
 
-        # 1) Chat models only on chat endpoints
+        # Smaller batches on HF free tier (JSON more likely to complete)
+        hf_n = min(num_questions, 8)
+        if hf_n != num_questions:
+            prompt = self._build_prompt(
+                full_text[:HF_INPUT_CHARS], hf_n, batch_index, total_batches
+            )
+
+        unsupported = set()
+
         for model in HF_CHAT_MODELS:
+            if model in unsupported:
+                continue
             body = {
                 "model": model,
                 "messages": [
@@ -279,93 +300,51 @@ class QuestionGenerator:
                         )
                         qs = self._parse_response(content)
                         if qs:
-                            self.last_provider = f"hf-chat:{model}"
-                            logger.info(f"✅ HF chat {model}: {len(qs)} Qs")
+                            self.last_provider = f"hf:{model}"
+                            logger.info(f"✅ HF {model}: {len(qs)} Qs")
                             return qs
-                        self.last_error = f"HF chat {model.split('/')[-1]}: unparseable"
+                        self.last_error = f"HF {model.split('/')[-1]}: unparseable JSON"
                     elif r.status_code == 429:
-                        self.last_error = f"HF chat {model.split('/')[-1]}: 429 rate limited"
-                        logger.warning(self.last_error)
+                        self.last_error = f"HF {model.split('/')[-1]}: 429 rate limited"
+                        return []  # don't thrash
                     else:
-                        # Skip "not a chat model" quickly
-                        msg = self._hf_error_message(r)
-                        self.last_error = f"HF chat {model.split('/')[-1]} ({r.status_code}): {msg}"
+                        msg = self._hf_msg(r)
+                        low = msg.lower()
+                        self.last_error = f"HF {model.split('/')[-1]} ({r.status_code}): {msg}"
                         logger.warning(self.last_error)
-                        if "not a chat model" in msg.lower():
-                            break  # try next model, don't spam other URLs
+                        if any(
+                            s in low
+                            for s in (
+                                "not supported",
+                                "not a chat model",
+                                "does not exist",
+                                "cannot be found",
+                                "not have access",
+                            )
+                        ):
+                            unsupported.add(model)
+                            break
                 except requests.exceptions.RequestException:
-                    self.last_error = f"HF chat {model.split('/')[-1]}: timeout/connection"
-                    logger.warning(self.last_error)
+                    self.last_error = f"HF {model.split('/')[-1]}: timeout/connection"
                 except Exception as e:
-                    self.last_error = f"HF chat {model.split('/')[-1]}: {e}"
-
-        # 2) Text-generation for instruct models (including Mistral)
-        for model in HF_TEXT_MODELS + HF_CHAT_MODELS:
-            try:
-                logger.info(f"HF text-gen → {model}")
-                # Prefer router text generation if available; classic inference as backup
-                urls = [
-                    f"https://api-inference.huggingface.co/models/{model}",
-                    f"https://router.huggingface.co/hf-inference/models/{model}",
-                ]
-                body = {
-                    "inputs": (
-                        "Return VALID JSON only.\n\n" + prompt
-                    ),
-                    "parameters": {
-                        "max_new_tokens": HF_MAX_TOKENS,
-                        "temperature": 0.6,
-                        "return_full_text": False,
-                    },
-                    "options": {"wait_for_model": True},
-                }
-                for url in urls:
-                    try:
-                        r = requests.post(url, headers=headers, json=body, timeout=HTTP_TIMEOUT)
-                    except requests.exceptions.RequestException:
-                        continue
-
-                    if r.status_code == 200:
-                        data = r.json()
-                        if isinstance(data, list) and data:
-                            content = data[0].get("generated_text", "")
-                        elif isinstance(data, dict):
-                            content = data.get("generated_text") or data.get("summary_text") or str(data)
-                        else:
-                            content = str(data)
-                        qs = self._parse_response(content)
-                        if qs:
-                            self.last_provider = f"hf-text:{model}"
-                            logger.info(f"✅ HF text {model}: {len(qs)} Qs")
-                            return qs
-                        self.last_error = f"HF text {model.split('/')[-1]}: unparseable"
-                    elif r.status_code == 429:
-                        self.last_error = f"HF text {model.split('/')[-1]}: 429 rate limited"
-                    else:
-                        self.last_error = (
-                            f"HF text {model.split('/')[-1]} ({r.status_code}): "
-                            f"{self._hf_error_message(r)}"
-                        )
-                        logger.warning(self.last_error)
-            except Exception as e:
-                self.last_error = f"HF text {model.split('/')[-1]}: {e}"
+                    self.last_error = f"HF {model.split('/')[-1]}: {e}"
 
         return []
 
-    def _build_prompt(self, text: str, num_questions: int, batch_index: int, total_batches: int) -> str:
+    def _build_prompt(self, text, num_questions, batch_index, total_batches) -> str:
         extra = ""
         if total_batches > 1:
             extra = (
                 f"This is batch {batch_index + 1} of {total_batches}. "
-                f"Cover DIFFERENT facts/concepts than other batches.\n"
+                f"Cover DIFFERENT facts than other batches.\n"
             )
         return f"""You are an expert exam creator. Generate EXACTLY {num_questions} multiple-choice questions from the study material.
 
 {extra}RULES:
-1. EXACTLY {num_questions} questions — no more, no fewer.
-2. Each explanation: ONE short sentence max.
+1. EXACTLY {num_questions} questions.
+2. Explanations: one short sentence max.
 3. correct_answer must be A, B, C, or D.
-4. Return VALID JSON ONLY — no markdown fences, no commentary.
+4. VALID JSON ONLY — no markdown.
 
 JSON shape:
 {{"questions":[{{"question_text":"...","option_a":"...","option_b":"...","option_c":"...","option_d":"...","correct_answer":"A","explanation":"...","source_page":1}}]}}
@@ -383,7 +362,6 @@ STUDY MATERIAL:
         m = re.search(r"```(?:json)?\s*(.*?)```", content, re.I | re.S)
         if m:
             content = m.group(1).strip()
-
         data = None
         try:
             data = json.loads(content)
@@ -404,7 +382,6 @@ STUDY MATERIAL:
                     data = json.loads(repaired)
                 except json.JSONDecodeError:
                     return self._parse_loose_objects(content)
-
         raw = data.get("questions", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
         return self._normalize_items(raw)
 
@@ -496,7 +473,7 @@ class ExamGenerationManager:
                 return 400, {"success": False, "error": str(e)}
 
             if not text_by_page:
-                return 400, {"success": False, "error": "No readable text found in selected pages."}
+                return 400, {"success": False, "error": "No readable text found."}
 
             task_id = str(uuid.uuid4())
             state = {
@@ -559,14 +536,14 @@ class ExamGenerationManager:
                 return 429, {
                     "success": False,
                     "retryable": True,
-                    "error": f"Pacing requests… {status['wait_seconds']}s",
+                    "error": f"Pacing… {status['wait_seconds']}s",
                     "retry_after": status["wait_seconds"],
                     "progress": prog,
                     "total_so_far": len(collected),
                     "total_questions": target,
                     "batch_index": batch_index,
                     "total_batches": total_batches,
-                    "message": f"Generated {len(collected)}/{target} — brief pause",
+                    "message": f"{len(collected)}/{target} — pause",
                     "quota": status,
                 }
 
@@ -583,7 +560,10 @@ class ExamGenerationManager:
                 state["fail_streak"] = int(state.get("fail_streak", 0)) + 1
                 cache.set(cls._task_key(task_id), state, timeout=TASK_TIMEOUT)
                 err = gen.last_error or "AI returned no questions"
-                is_rate = any(x in err for x in ("429", "RATE LIMITED", "RESOURCE_EXHAUSTED", "rate limited"))
+                is_rate = any(
+                    x in err.lower()
+                    for x in ("429", "rate limited", "resource_exhausted", "quota")
+                )
 
                 if state["fail_streak"] >= MAX_FAIL_STREAK and not is_rate:
                     if len(collected) >= MIN_QUESTIONS:
@@ -602,13 +582,13 @@ class ExamGenerationManager:
                     "success": False,
                     "retryable": True,
                     "retry_after": RATE_LIMIT_BACKOFF if is_rate else 3,
-                    "error": f"{'Rate limited' if is_rate else 'Retrying batch'} ({state['fail_streak']}/{MAX_FAIL_STREAK}): {err[:180]}",
+                    "error": f"{'Rate limited' if is_rate else 'Retrying'} ({state['fail_streak']}/{MAX_FAIL_STREAK}): {err[:220]}",
                     "progress": prog,
                     "total_so_far": len(collected),
                     "total_questions": target,
                     "batch_index": batch_index,
                     "total_batches": total_batches,
-                    "message": f"Generated {len(collected)}/{target} — retrying…",
+                    "message": f"{len(collected)}/{target} — retrying",
                     "quota": cls.get_quota_status(),
                 }
 
@@ -630,7 +610,7 @@ class ExamGenerationManager:
                 "progress": prog,
                 "total_so_far": len(collected),
                 "total_questions": target,
-                "message": f"Batch {batch_index + 1}/{total_batches} done — {len(collected)}/{target}",
+                "message": f"Batch {batch_index+1}/{total_batches} — {len(collected)}/{target}",
                 "provider": gen.last_provider,
                 "quota": cls.get_quota_status(),
             }
@@ -650,7 +630,6 @@ class ExamGenerationManager:
         source_type = str(payload.get("source_type", "entire")).lower()
         text_by_page, source_map = {}, {}
         ref = 1
-
         for document in documents:
             if str(document.file_type).lower() != "pdf":
                 continue
@@ -659,7 +638,7 @@ class ExamGenerationManager:
             except Exception:
                 raise ValueError(f"Document '{document.title}' path inaccessible.")
             if not os.path.exists(path):
-                raise ValueError(f"File '{document.title}' missing on server. Please re-upload it.")
+                raise ValueError(f"File '{document.title}' missing. Re-upload it.")
 
             if source_type == "entire":
                 pages = None
@@ -681,7 +660,6 @@ class ExamGenerationManager:
                 text_by_page[ref] = f"[Document: {document.title}; page: {orig_page}]\n{page_text}"
                 source_map[str(ref)] = {"document_id": str(document.id), "page": int(orig_page)}
                 ref += 1
-
         return text_by_page, source_map
 
     @classmethod
@@ -691,8 +669,7 @@ class ExamGenerationManager:
         source_map = state.get("source_map", {})
         first = next(iter(source_map.values()), None)
         for q in questions:
-            key = str(q.get("source_page", ""))
-            src = source_map.get(key) or first
+            src = source_map.get(str(q.get("source_page", ""))) or first
             if src:
                 q["source_document_id"] = src["document_id"]
                 q["source_page"] = src["page"]
@@ -709,7 +686,6 @@ class ExamGenerationManager:
         request.session.modified = True
         cache.delete(cls._task_key(state["task_id"]))
         request.session.pop("gen_task_id", None)
-
         return {
             "success": True,
             "done": True,
@@ -723,9 +699,9 @@ class ExamGenerationManager:
 
     @classmethod
     def get_review_data(cls, request) -> dict:
-        review_id = request.session.get("review_task_id")
-        if review_id:
-            data = cache.get(cls._review_key(review_id))
+        rid = request.session.get("review_task_id")
+        if rid:
+            data = cache.get(cls._review_key(rid))
             if data and data.get("questions"):
                 return data
         return {
