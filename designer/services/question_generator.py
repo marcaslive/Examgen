@@ -44,13 +44,15 @@ GEMINI_MODELS_CASCADE = [
 ]
 
 # ---- TOKEN BUDGETS ----
+# Gemini supports large output windows natively:
 GEMINI_MAX_OUTPUT_TOKENS = 8192
-HF_MAX_TOKENS = 4096
-
 GEMINI_INPUT_CHARS = 40000
+
+# Hugging Face free serverless enforces strict max 2048-4096 output cap:
+HF_MAX_TOKENS = 2048
 HF_INPUT_CHARS = 20000
 
-# Fast HTTP Timeout (prevents hanging / Max retries exceeded errors)
+# Fast HTTP Timeout (prevents hanging connection pool errors)
 HTTP_TIMEOUT = 25
 
 MIN_REQUEST_INTERVAL = 1.5
@@ -60,9 +62,10 @@ RATE_LIMIT_BACKOFF = 10
 TASK_TIMEOUT = 7200
 REVIEW_TIMEOUT = 7200
 
-# Active Hugging Face Serverless Models
+# Active Hugging Face Serverless Chat Models
 HF_MODELS = [
-    "meta-llama/Llama-3.2-3B-Instruct",
+    "Qwen/Qwen2.5-Coder-32B-Instruct",
+    "meta-llama/Llama-3.1-8B-Instruct",
     "Qwen/Qwen2.5-7B-Instruct",
     "mistralai/Mistral-7B-Instruct-v0.3",
 ]
@@ -209,7 +212,7 @@ class QuestionGenerator:
                             data = r.json()
                             cands = data.get("candidates") or []
                             if not cands:
-                                self.last_error = f"Gemini {model}: no content generated"
+                                self.last_error = f"Gemini {model}: empty candidates response"
                                 continue
                             parts = cands[0].get("content", {}).get("parts") or []
                             content = parts[0].get("text", "") if parts else ""
@@ -224,10 +227,15 @@ class QuestionGenerator:
                             logger.warning(self.last_error)
                             continue
                         else:
-                            self.last_error = f"Gemini {model} error ({r.status_code})"
+                            try:
+                                err_data = r.json().get("error", {})
+                                err_detail = err_data.get("message") or r.text[:120]
+                            except Exception:
+                                err_detail = r.text[:120]
+                            self.last_error = f"Gemini {model} ({r.status_code}): {err_detail}"
                             logger.warning(self.last_error)
                     except requests.exceptions.RequestException as req_err:
-                        self.last_error = f"Gemini {model} connection error"
+                        self.last_error = f"Gemini {model} connection timeout"
                         logger.warning(f"Gemini HTTP connection error: {req_err}")
                     except Exception as e:
                         self.last_error = f"Gemini {model}: {e}"
@@ -256,8 +264,8 @@ class QuestionGenerator:
             "Content-Type": "application/json",
         }
         chat_urls = [
-            "https://router.huggingface.co/v1/chat/completions",
             "https://router.huggingface.co/hf-inference/v1/chat/completions",
+            "https://router.huggingface.co/v1/chat/completions",
         ]
 
         for model in HF_MODELS:
@@ -283,15 +291,23 @@ class QuestionGenerator:
                             self.last_provider = f"hf:{model}"
                             logger.info(f"✅ HF {model}: {len(qs)} Qs")
                             return qs
-                    elif r.status_code == 429:
-                        self.last_error = f"HF {model} rate limited"
                     else:
-                        self.last_error = f"HF {model} status {r.status_code}"
+                        try:
+                            err_json = r.json()
+                            err_msg = err_json.get("error", {})
+                            if isinstance(err_msg, dict):
+                                err_msg = err_msg.get("message", r.text[:120])
+                            elif not err_msg:
+                                err_msg = r.text[:120]
+                        except Exception:
+                            err_msg = r.text[:120]
+                        self.last_error = f"HF {model.split('/')[-1]} ({r.status_code}): {err_msg}"
+                        logger.warning(self.last_error)
                 except requests.exceptions.RequestException:
-                    self.last_error = f"HF {model} connection timeout"
-                    logger.warning(f"HF connection error on {model}")
+                    self.last_error = f"HF {model.split('/')[-1]} connection timeout"
+                    logger.warning(f"HF connection timeout on {model}")
                 except Exception as e:
-                    self.last_error = f"HF {model}: {e}"
+                    self.last_error = f"HF {model.split('/')[-1]}: {e}"
 
         return []
 
