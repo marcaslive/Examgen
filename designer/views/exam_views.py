@@ -2,12 +2,12 @@
 
 import json
 import logging
-import random
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
 
 from ..models import Document, Exam, Question, GradeRule
@@ -25,40 +25,40 @@ def generate_exam_view(request):
         return redirect('designer:user_dashboard')
 
     documents = Document.objects.filter(uploaded_by=request.user, status='ready')
-    context = {
-        'documents': documents,
-    }
-    return render(request, 'designer/generate_exam.html', context)
+    return render(request, 'designer/generate_exam.html', {'documents': documents})
+
 
 # ============================================================
-# NEW BATCH GENERATION ENDPOINTS
+# BATCH GENERATION API (always returns JSON)
 # ============================================================
 
-@login_required
+@csrf_exempt
 @require_POST
 def generate_start_api(request):
-    """AJAX endpoint to initialize generation, check limits, and build batch plan."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Session expired. Please log in again.'}, status=401)
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     try:
-        payload = json.loads(request.body)
+        payload = json.loads(request.body.decode('utf-8') or '{}')
     except Exception as e:
-        return JsonResponse({"success": False, "error": f"Invalid request body: {str(e)}"}, status=400)
+        return JsonResponse({"success": False, "error": f"Invalid payload: {e}"}, status=400)
 
     try:
         request.session['generation_doc_ids'] = payload.get("documents", [])
         status_code, response_data = ExamGenerationManager.start_generation(request, payload)
         return JsonResponse(response_data, status=status_code)
     except Exception as e:
-        logger.exception("Error in generate_start_api")
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        logger.exception("generate_start_api failed")
+        return JsonResponse({'success': False, 'error': f"Init failed: {e}"}, status=500)
 
 
-@login_required
+@csrf_exempt
 @require_POST
 def generate_batch_api(request):
-    """AJAX endpoint to process exactly one batch of questions."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Session expired.'}, status=401)
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
@@ -66,26 +66,26 @@ def generate_batch_api(request):
         status_code, response_data = ExamGenerationManager.process_next_batch(request)
         return JsonResponse(response_data, status=status_code)
     except Exception as e:
-        logger.exception("Error in generate_batch_api")
-        return JsonResponse({'success': False, 'error': f"Server error: {str(e)}"}, status=500)
+        logger.exception("generate_batch_api failed")
+        return JsonResponse({'success': False, 'error': f"Batch error: {e}"}, status=500)
 
 
-@login_required
 @require_GET
 def generate_quota_api(request):
-    """AJAX endpoint to check remaining AI limits."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Session expired.'}, status=401)
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     try:
         return JsonResponse({"success": True, **ExamGenerationManager.get_quota_status()})
     except Exception as e:
-        logger.exception("Error in generate_quota_api")
+        logger.exception("generate_quota_api failed")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 # ============================================================
-# EXISTING EXAM VIEWS
+# EXAM VIEWS
 # ============================================================
 
 @login_required
@@ -113,17 +113,19 @@ def review_questions_view(request):
         'exam_form': ExamForm(),
     })
 
-@login_required
+
+@csrf_exempt
 @require_POST
 def save_exam_view(request):
-    """Save the exam with generated questions."""
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Session expired.'}, status=401)
     if not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body.decode('utf-8') or '{}')
     except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid data.'}, status=400)
+        return JsonResponse({'success': False, 'error': 'Invalid request body.'}, status=400)
 
     exam_data = data.get('exam', {})
     questions_data = data.get('questions', [])
@@ -158,16 +160,12 @@ def save_exam_view(request):
                 status=save_as,
                 created_by=request.user,
             )
-
-            scheduled_date = exam_data.get('scheduled_date')
-            if scheduled_date:
-                exam.scheduled_date = scheduled_date
-            start_time = exam_data.get('start_time')
-            if start_time:
-                exam.start_time = start_time
-            end_time = exam_data.get('end_time')
-            if end_time:
-                exam.end_time = end_time
+            if exam_data.get('scheduled_date'):
+                exam.scheduled_date = exam_data['scheduled_date']
+            if exam_data.get('start_time'):
+                exam.start_time = exam_data['start_time']
+            if exam_data.get('end_time'):
+                exam.end_time = exam_data['end_time']
 
             exam.save()
 
@@ -182,10 +180,10 @@ def save_exam_view(request):
 
             for idx, q in enumerate(questions_data):
                 source_doc = None
-                source_doc_id = q.get('source_document_id')
-                if source_doc_id:
+                sdi = q.get('source_document_id')
+                if sdi:
                     try:
-                        source_doc = Document.objects.get(id=source_doc_id)
+                        source_doc = Document.objects.get(id=sdi)
                     except Document.DoesNotExist:
                         pass
 
@@ -212,28 +210,22 @@ def save_exam_view(request):
                         max_score=int(rule.get('max_score', 100)),
                     )
             else:
-                default_grades = [
-                    ('A', 70, 100),
-                    ('B', 60, 69),
-                    ('C', 50, 59),
-                    ('D', 45, 49),
-                    ('E', 40, 44),
-                    ('F', 0, 39),
-                ]
-                for grade, min_s, max_s in default_grades:
+                for grade, min_s, max_s in [
+                    ('A', 70, 100), ('B', 60, 69), ('C', 50, 59),
+                    ('D', 45, 49), ('E', 40, 44), ('F', 0, 39),
+                ]:
                     GradeRule.objects.create(
                         exam=exam, grade=grade, min_score=min_s, max_score=max_s
                     )
 
-            request.session.pop('review_questions', None)
-            request.session.pop('generated_questions', None)
-            request.session.pop('generation_doc_ids', None)
+            for k in ('review_questions', 'generated_questions', 'generation_doc_ids'):
+                request.session.pop(k, None)
 
         return JsonResponse({
             'success': True,
             'exam_id': str(exam.id),
             'message': f'Exam "{exam.name}" saved as {save_as}.',
-            'redirect': f'/exams/{exam.id}/'
+            'redirect': f'/exams/{exam.id}/',
         })
 
     except Exception as e:
@@ -245,16 +237,13 @@ def save_exam_view(request):
 def exam_list_view(request):
     if not request.user.is_staff:
         return redirect('designer:user_dashboard')
-
-    exams = Exam.objects.filter(created_by=request.user)
-    return render(request, 'designer/exam_list.html', {'exams': exams})
+    return render(request, 'designer/exam_list.html', {'exams': Exam.objects.filter(created_by=request.user)})
 
 
 @login_required
 def exam_detail_view(request, exam_id):
     if not request.user.is_staff:
         return redirect('designer:user_dashboard')
-
     exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
     return render(request, 'designer/exam_detail.html', {
         'exam': exam,
@@ -287,10 +276,10 @@ def exam_edit_view(request, exam_id):
     })
 
 
-@login_required
+@csrf_exempt
 @require_POST
 def exam_publish_view(request, exam_id):
-    if not request.user.is_staff:
+    if not request.user.is_authenticated or not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
@@ -305,14 +294,13 @@ def exam_publish_view(request, exam_id):
         exam.status = 'unpublished'
         exam.save()
         return JsonResponse({'success': True, 'status': 'unpublished', 'message': 'Exam unpublished.'})
-
     return JsonResponse({'success': False, 'error': 'Invalid status transition.'})
 
 
-@login_required
+@csrf_exempt
 @require_POST
 def exam_delete_view(request, exam_id):
-    if not request.user.is_staff:
+    if not request.user.is_authenticated or not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
@@ -321,10 +309,10 @@ def exam_delete_view(request, exam_id):
     return JsonResponse({'success': True, 'message': f'Exam "{name}" deleted.'})
 
 
-@login_required
+@csrf_exempt
 @require_POST
 def exam_duplicate_view(request, exam_id):
-    if not request.user.is_staff:
+    if not request.user.is_authenticated or not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     original = get_object_or_404(Exam, id=exam_id, created_by=request.user)
@@ -352,7 +340,6 @@ def exam_duplicate_view(request, exam_id):
             status='draft',
             created_by=request.user,
         )
-
         new_exam.source_documents.set(original.source_documents.all())
 
         for q in original.questions.all():
@@ -369,7 +356,6 @@ def exam_duplicate_view(request, exam_id):
                 source_page=q.source_page,
                 order=q.order,
             )
-
         for rule in original.grade_rules.all():
             GradeRule.objects.create(
                 exam=new_exam,
@@ -389,7 +375,6 @@ def exam_duplicate_view(request, exam_id):
 def exam_preview_view(request, exam_id):
     if not request.user.is_staff:
         return redirect('designer:user_dashboard')
-
     exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
     return render(request, 'designer/exam_preview.html', {
         'exam': exam,
@@ -398,16 +383,16 @@ def exam_preview_view(request, exam_id):
     })
 
 
-@login_required
+@csrf_exempt
 @require_POST
 def question_edit_api(request, question_id):
-    if not request.user.is_staff:
+    if not request.user.is_authenticated or not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     question = get_object_or_404(Question, id=question_id, exam__created_by=request.user)
 
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body.decode('utf-8') or '{}')
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid data.'}, status=400)
 
@@ -421,14 +406,13 @@ def question_edit_api(request, question_id):
         question.correct_answer = correct
     question.explanation = data.get('explanation', question.explanation)
     question.save()
-
     return JsonResponse({'success': True, 'message': 'Question updated.'})
 
 
-@login_required
+@csrf_exempt
 @require_POST
 def question_delete_api(request, question_id):
-    if not request.user.is_staff:
+    if not request.user.is_authenticated or not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     question = get_object_or_404(Question, id=question_id, exam__created_by=request.user)
@@ -436,16 +420,16 @@ def question_delete_api(request, question_id):
     return JsonResponse({'success': True, 'message': 'Question deleted.'})
 
 
-@login_required
+@csrf_exempt
 @require_POST
 def question_add_api(request, exam_id):
-    if not request.user.is_staff:
+    if not request.user.is_authenticated or not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
 
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body.decode('utf-8') or '{}')
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid data.'}, status=400)
 
@@ -461,7 +445,6 @@ def question_add_api(request, exam_id):
         explanation=data.get('explanation', ''),
         order=max_order + 1,
     )
-
     return JsonResponse({
         'success': True,
         'question_id': str(question.id),
@@ -469,28 +452,27 @@ def question_add_api(request, exam_id):
     })
 
 
-@login_required
+@csrf_exempt
 @require_POST
 def exam_release_results_view(request, exam_id):
-    if not request.user.is_staff:
+    if not request.user.is_authenticated or not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
-
     exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
     exam.results_released = True
     exam.save()
     return JsonResponse({'success': True, 'message': 'Results released.'})
 
 
-@login_required
+@csrf_exempt
 @require_POST
 def exam_assign_users_view(request, exam_id):
-    if not request.user.is_staff:
+    if not request.user.is_authenticated or not request.user.is_staff:
         return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
 
     exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
 
     try:
-        data = json.loads(request.body)
+        data = json.loads(request.body.decode('utf-8') or '{}')
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid data.'}, status=400)
 
