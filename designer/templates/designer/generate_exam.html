@@ -115,44 +115,130 @@
             opacity: 0.35; cursor: not-allowed; transform: none; pointer-events: none; filter: grayscale(0.5);
         }
 
-        /* Loading overlay */
+        /* ========== BEAUTIFUL LOADING OVERLAY ========== */
         .loading-overlay {
             display: none; position: fixed; inset: 0;
-            background: rgba(0,0,0,0.85); z-index: 1000;
+            background: radial-gradient(ellipse at center, rgba(20,20,40,0.95) 0%, rgba(0,0,0,0.98) 100%);
+            z-index: 1000;
             justify-content: center; align-items: center; flex-direction: column;
-            backdrop-filter: blur(6px);
+            backdrop-filter: blur(10px);
             padding: 20px;
         }
-        .loading-overlay.show { display: flex; }
+        .loading-overlay.show { display: flex; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
 
         .progress-circle {
-            position: relative; width: 170px; height: 170px; margin-bottom: 26px;
+            position: relative; width: 190px; height: 190px; margin-bottom: 30px;
+            filter: drop-shadow(0 0 20px rgba(102, 126, 234, 0.3));
         }
         .progress-circle svg { transform: rotate(-90deg); }
-        .progress-circle circle { fill: none; stroke-width: 10; }
-        .progress-bg { stroke: rgba(255,255,255,0.08); }
+        .progress-circle circle { fill: none; stroke-width: 11; }
+        .progress-bg { stroke: rgba(255,255,255,0.06); }
         .progress-fg {
             stroke: url(#gradient); stroke-linecap: round;
-            stroke-dasharray: 471; stroke-dashoffset: 471;
-            transition: stroke-dashoffset 0.35s linear;
+            stroke-dasharray: 534; stroke-dashoffset: 534;
+            transition: stroke-dashoffset 0.3s linear;
         }
         .progress-text {
             position: absolute; inset: 0;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
-            color: #fff; font-weight: 700; font-size: 2rem;
+            color: #fff; font-weight: 700; font-size: 2.4rem;
         }
         .progress-timer {
             font-size: 0.85rem;
             font-weight: 500;
             color: #9999b8;
-            margin-top: 4px;
+            margin-top: 6px;
             font-variant-numeric: tabular-nums;
+            letter-spacing: 1px;
         }
 
         .loading-label {
-            color: #fff; font-size: 1.1rem; margin-bottom: 6px; font-weight: 600;
-            text-align: center; max-width: 500px;
+            color: #fff;
+            font-size: 1.25rem;
+            margin-bottom: 8px;
+            font-weight: 600;
+            text-align: center;
+            max-width: 500px;
+            letter-spacing: 0.3px;
+        }
+        .loading-sub {
+            color: #9999b8;
+            font-size: 0.95rem;
+            text-align: center;
+            max-width: 500px;
+            min-height: 22px;
+        }
+
+        .dots::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            text-align: left;
+            animation: dotAnim 1.4s steps(4, end) infinite;
+        }
+        @keyframes dotAnim {
+            0%   { content: ''; }
+            25%  { content: '.'; }
+            50%  { content: '..'; }
+            75%  { content: '...'; }
+            100% { content: ''; }
+        }
+
+        .pulse-ring {
+            position: absolute;
+            inset: -10px;
+            border-radius: 50%;
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            animation: pulseRing 2s ease-out infinite;
+            pointer-events: none;
+        }
+        @keyframes pulseRing {
+            0%   { transform: scale(1); opacity: 0.6; }
+            100% { transform: scale(1.15); opacity: 0; }
+        }
+
+        .success-check {
+            display: none;
+            width: 190px; height: 190px;
+            margin-bottom: 30px;
+            justify-content: center;
+            align-items: center;
+        }
+        .success-check.show {
+            display: flex;
+            animation: bounceIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes bounceIn {
+            0%   { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .success-check svg {
+            width: 100%; height: 100%;
+            filter: drop-shadow(0 0 20px rgba(46, 213, 115, 0.6));
+        }
+        .success-check circle {
+            fill: none; stroke: #2ed573; stroke-width: 8;
+            stroke-dasharray: 534;
+            stroke-dashoffset: 534;
+            animation: drawCircle 0.5s ease-out forwards;
+        }
+        .success-check path {
+            fill: none; stroke: #2ed573; stroke-width: 10;
+            stroke-linecap: round; stroke-linejoin: round;
+            stroke-dasharray: 80;
+            stroke-dashoffset: 80;
+            animation: drawCheck 0.4s ease-out 0.4s forwards;
+        }
+        @keyframes drawCircle {
+            to { stroke-dashoffset: 0; }
+        }
+        @keyframes drawCheck {
+            to { stroke-dashoffset: 0; }
         }
 
         .toast { position: fixed; bottom: 30px; right: 30px; padding: 14px 24px; border-radius: 10px; color: #fff; font-size: 0.9rem; z-index: 1001; transform: translateY(100px); opacity: 0; transition: all 0.3s; max-width: 360px; }
@@ -278,25 +364,36 @@
         {% endif %}
     </div>
 
-    <!-- Loading Overlay -->
+    <!-- LOADING OVERLAY -->
     <div class="loading-overlay" id="loading">
-        <div class="progress-circle">
-            <svg width="170" height="170" viewBox="0 0 170 170">
+        <div class="progress-circle" id="progress-circle-wrap">
+            <div class="pulse-ring"></div>
+            <svg width="190" height="190" viewBox="0 0 190 190">
                 <defs>
                     <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" stop-color="#667eea"/>
-                        <stop offset="100%" stop-color="#764ba2"/>
+                        <stop offset="50%" stop-color="#8b5cf6"/>
+                        <stop offset="100%" stop-color="#ec4899"/>
                     </linearGradient>
                 </defs>
-                <circle class="progress-bg" cx="85" cy="85" r="75"></circle>
-                <circle class="progress-fg" id="progress-ring" cx="85" cy="85" r="75"></circle>
+                <circle class="progress-bg" cx="95" cy="95" r="85"></circle>
+                <circle class="progress-fg" id="progress-ring" cx="95" cy="95" r="85"></circle>
             </svg>
             <div class="progress-text">
                 <span id="progress-pct">0%</span>
-                <span class="progress-timer" id="progress-timer">00:00</span>
+                <span class="progress-timer" id="progress-timer">Time left: --:--</span>
             </div>
         </div>
-        <p class="loading-label" id="loading-label">Preparing document…</p>
+
+        <div class="success-check" id="success-check">
+            <svg viewBox="0 0 190 190">
+                <circle cx="95" cy="95" r="85"></circle>
+                <path d="M55 95 L85 125 L135 70"></path>
+            </svg>
+        </div>
+
+        <p class="loading-label" id="loading-label"><span id="loading-label-text">Preparing document</span><span class="dots"></span></p>
+        <p class="loading-sub" id="loading-sub">Reading your material</p>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -308,27 +405,34 @@ const URL_BATCH  = '{% url "designer:generate_batch" %}';
 const URL_QUOTA  = '{% url "designer:generate_quota" %}';
 const URL_REVIEW = '{% url "designer:review_questions" %}';
 
-const CIRCUMFERENCE = 2 * Math.PI * 75; // ~471
+const CIRCUMFERENCE = 2 * Math.PI * 85; // ~534
 let selectedCount = '10';
 let isGenerating = false;
 let countdownTimer = null;
 
-/* ============================================================
-   SMOOTH PROGRESS ENGINE
-   - Ticks 1..99 continuously (never freezes)
-   - Snaps up to server target when real progress arrives
-   - Slows down near target when server is behind
-   - Never goes backward
-   ============================================================ */
+/* ==============================================================
+   TIME-BASED PROGRESS ENGINE
+   - Estimates total time from question count (~4s per question)
+   - Loader always advances smoothly with real elapsed time
+   - Shows dynamic "Time left" countdown
+   - Reaches 95% at estimated end; holds there until server done
+   - When server says done → snaps to 100% + success animation
+   ============================================================== */
 const P = {
-    displayed: 0,
-    target: 0,     // server-known progress
-    ceiling: 95,   // never exceed this until backend says done
-    timer: null,
     startTs: 0,
-    timerLabel: null,
+    estimatedTotalSec: 60,
+    timer: null,
     ringEl: null,
     pctEl: null,
+    timerEl: null,
+    subEl: null,
+    labelEl: null,
+    stage: 'prep',       // 'prep' | 'generating' | 'finishing' | 'done'
+    prepEndSec: 4,       // reserve first ~4s for "Preparing"
+    initEndSec: 8,       // then ~4s for "Initializing"
+    frozen: false,
+    donePct: 0,
+    completed: false,
 };
 
 function fmtTime(sec) {
@@ -344,75 +448,121 @@ function paintRing(v) {
     if (P.pctEl) P.pctEl.textContent = Math.floor(v) + '%';
 }
 
-function startProgress() {
-    P.displayed = 0;
-    P.target = 5;
-    P.ceiling = 95;
+function estimateSecondsFor(nQuestions) {
+    // Empirical: ~3.9s per question incl. retries, minimum 25s.
+    const perQ = 4.0;
+    const overhead = 8; // prep + init + finish
+    return Math.max(25, Math.ceil(nQuestions * perQ + overhead));
+}
+
+function setLabelText(text) {
+    const el = document.getElementById('loading-label-text');
+    if (el) el.textContent = text;
+}
+function setSubText(text) {
+    if (P.subEl) P.subEl.textContent = text || '';
+}
+function setTimerText(text) {
+    if (P.timerEl) P.timerEl.textContent = text;
+}
+
+function startTimeProgress(nQuestions) {
     P.startTs = Date.now();
-    P.ringEl = document.getElementById('progress-ring');
-    P.pctEl  = document.getElementById('progress-pct');
-    P.timerLabel = document.getElementById('progress-timer');
+    P.estimatedTotalSec = estimateSecondsFor(nQuestions);
+    P.frozen = false;
+    P.completed = false;
+    P.stage = 'prep';
+    P.donePct = 0;
+
+    P.ringEl  = document.getElementById('progress-ring');
+    P.pctEl   = document.getElementById('progress-pct');
+    P.timerEl = document.getElementById('progress-timer');
+    P.subEl   = document.getElementById('loading-sub');
+    P.labelEl = document.getElementById('loading-label');
 
     paintRing(0);
-    if (P.timerLabel) P.timerLabel.textContent = '00:00';
+    setTimerText(`Time left: ${fmtTime(P.estimatedTotalSec)}`);
+    setLabelText('Preparing document');
+    setSubText('Reading your material');
 
     if (P.timer) clearInterval(P.timer);
-    P.timer = setInterval(() => {
-        // timer always ticks
-        const elapsed = (Date.now() - P.startTs) / 1000;
-        if (P.timerLabel) P.timerLabel.textContent = fmtTime(elapsed);
-
-        // Effective target: min(server target, ceiling)
-        const cap = Math.min(P.target, P.ceiling);
-
-        if (P.displayed < cap) {
-            // Move faster if far, slower if close
-            const gap = cap - P.displayed;
-            let step;
-            if (gap > 20)       step = 0.9;
-            else if (gap > 10)  step = 0.55;
-            else if (gap > 4)   step = 0.28;
-            else                step = 0.14;
-            P.displayed = Math.min(cap, P.displayed + step);
-            paintRing(P.displayed);
-        } else if (P.displayed < P.ceiling) {
-            // Server hasn't advanced — crawl forward very slowly so bar never freezes
-            P.displayed = Math.min(P.ceiling, P.displayed + 0.06);
-            paintRing(P.displayed);
-        }
-    }, 90);
+    P.timer = setInterval(tickTime, 200);
 }
 
-function bumpTarget(pct) {
-    if (typeof pct !== 'number' || isNaN(pct)) return;
-    if (pct > P.target) P.target = Math.min(100, pct);
+function tickTime() {
+    if (P.completed || P.frozen) return;
+
+    const elapsed = (Date.now() - P.startTs) / 1000;
+    const total = P.estimatedTotalSec;
+
+    // Stage transitions based on elapsed time
+    if (P.stage === 'prep' && elapsed >= P.prepEndSec) {
+        P.stage = 'initializing';
+        setLabelText('Initializing questions');
+        setSubText(`Setting up your ${window._currentTarget || ''} question generation`);
+    }
+    if (P.stage === 'initializing' && elapsed >= P.initEndSec) {
+        P.stage = 'generating';
+        setLabelText('Generating questions');
+        setSubText('Crafting each question with care');
+    }
+
+    // Compute progress purely from time (0..95%)
+    let pct = (elapsed / total) * 95;
+    if (pct > 95) pct = 95;
+
+    // Once server signals done → we'll finish separately
+    if (pct > P.donePct) P.donePct = pct;
+    paintRing(P.donePct);
+
+    // Time left readout
+    const remaining = Math.max(0, total - elapsed);
+    if (remaining > 0) {
+        setTimerText(`Time left: ${fmtTime(remaining)}`);
+    } else {
+        setTimerText('Wrapping up…');
+    }
+
+    // If we've been at 95% for a while and still not done, show subtle "finalizing"
+    if (elapsed >= total && P.stage !== 'finishing') {
+        P.stage = 'finishing';
+        setLabelText('Finalizing');
+        setSubText('Almost ready');
+    }
 }
 
-function finishProgress() {
-    P.ceiling = 100;
-    P.target = 100;
-    // quickly race to 100
-    if (P.timer) clearInterval(P.timer);
-    P.timer = setInterval(() => {
-        const elapsed = (Date.now() - P.startTs) / 1000;
-        if (P.timerLabel) P.timerLabel.textContent = fmtTime(elapsed);
-        if (P.displayed < 100) {
-            P.displayed = Math.min(100, P.displayed + 1.8);
-            paintRing(P.displayed);
-        } else {
-            clearInterval(P.timer);
-            P.timer = null;
+function completeProgress(nQuestions) {
+    // Snap to 100% smoothly and swap to success check
+    if (P.timer) { clearInterval(P.timer); P.timer = null; }
+    P.completed = true;
+    P.stage = 'done';
+
+    // Race any remaining bar to 100
+    const start = P.donePct;
+    const startTs = Date.now();
+    const duration = 500; // ms
+    const anim = setInterval(() => {
+        const t = Math.min(1, (Date.now() - startTs) / duration);
+        const v = start + (100 - start) * t;
+        paintRing(v);
+        setTimerText('Complete');
+        if (t >= 1) {
+            clearInterval(anim);
+            // Show success check animation
+            const ring = document.getElementById('progress-circle-wrap');
+            const check = document.getElementById('success-check');
+            if (ring) ring.style.display = 'none';
+            if (check) check.classList.add('show');
+            setLabelText(`✨ ${nQuestions} questions ready`);
+            const dots = document.querySelector('.loading-label .dots');
+            if (dots) dots.style.display = 'none';
+            setSubText('Redirecting to review…');
         }
-    }, 30);
+    }, 20);
 }
 
 function stopProgress() {
     if (P.timer) { clearInterval(P.timer); P.timer = null; }
-}
-
-function setStage(text) {
-    const el = document.getElementById('loading-label');
-    if (el && text) el.textContent = text;
 }
 
 function showLoading(show) {
@@ -420,12 +570,17 @@ function showLoading(show) {
     if (!show) {
         stopProgress();
         paintRing(0);
+        // reset success check for next time
+        const check = document.getElementById('success-check');
+        const ring = document.getElementById('progress-circle-wrap');
+        if (check) check.classList.remove('show');
+        if (ring) ring.style.display = '';
+        const dots = document.querySelector('.loading-label .dots');
+        if (dots) dots.style.display = '';
     }
 }
 
-/* ============================================================
-   SAFE JSON FETCH
-   ============================================================ */
+/* =============== Fetch helper =============== */
 async function safeFetchJson(url, options = {}) {
     try {
         const res = await fetch(url, options);
@@ -442,9 +597,7 @@ async function safeFetchJson(url, options = {}) {
     }
 }
 
-/* ============================================================
-   QUOTA REFRESH (top pill only — silent)
-   ============================================================ */
+/* =============== Quota =============== */
 function refreshQuota() {
     safeFetchJson(URL_QUOTA, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(({ data }) => {
@@ -491,7 +644,6 @@ function startCountdown(seconds) {
 
     if (countdownTimer) clearInterval(countdownTimer);
     let left = seconds;
-
     function tick() {
         const m = String(Math.floor(left / 60)).padStart(2, '0');
         const s = String(left % 60).padStart(2, '0');
@@ -510,9 +662,7 @@ function startCountdown(seconds) {
     countdownTimer = setInterval(tick, 1000);
 }
 
-/* ============================================================
-   UI HANDLERS
-   ============================================================ */
+/* =============== UI Handlers =============== */
 document.querySelectorAll('.doc-checkbox').forEach(cb => {
     cb.addEventListener('change', function() {
         this.closest('.doc-select-item').classList.toggle('selected', this.checked);
@@ -528,7 +678,6 @@ function deselectAll() {
         cb.checked = false; cb.closest('.doc-select-item').classList.remove('selected');
     });
 }
-
 document.querySelectorAll('input[name="source_type"]').forEach(r => {
     r.addEventListener('change', function() {
         document.querySelectorAll('.page-options').forEach(el => el.classList.remove('active'));
@@ -536,7 +685,6 @@ document.querySelectorAll('input[name="source_type"]').forEach(r => {
         if (opt) opt.classList.add('active');
     });
 });
-
 document.querySelectorAll('.count-btn').forEach(btn => {
     btn.addEventListener('click', function() {
         document.querySelectorAll('.count-btn').forEach(b => b.classList.remove('selected'));
@@ -574,9 +722,14 @@ function buildPayload() {
     return payload;
 }
 
-/* ============================================================
-   GENERATE FLOW
-   ============================================================ */
+function getRequestedCount() {
+    if (selectedCount === 'custom') {
+        return parseInt(document.getElementById('custom-count').value || '10', 10);
+    }
+    return parseInt(selectedCount, 10);
+}
+
+/* =============== Generate Flow =============== */
 async function onGenerateClick() {
     if (isGenerating) return;
     const payload = buildPayload();
@@ -586,11 +739,12 @@ async function onGenerateClick() {
     btn.disabled = true;
     btn.classList.add('faded');
 
+    const nQuestions = getRequestedCount();
+    window._currentTarget = nQuestions;
+
     isGenerating = true;
     showLoading(true);
-    setStage('Preparing document…');
-    startProgress();
-    bumpTarget(8);   // initial nudge so ring moves immediately
+    startTimeProgress(nQuestions);
 
     const { status, data } = await safeFetchJson(URL_START, {
         method: 'POST',
@@ -599,37 +753,40 @@ async function onGenerateClick() {
     });
 
     if (status === 429) {
-        endLoader(false);
+        endLoader();
         startCountdown(data.retry_after || 60);
-        showToast(data.error || 'Rate limit active.', 'error');
+        showToast(data.error || 'Rate limit active. Come back shortly.', 'error');
         return;
     }
 
     if (!data.success) {
-        endLoader(false);
+        endLoader();
         showToast(data.error || 'Could not start generation.', 'error');
         return;
     }
 
+    // Adjust time estimate if server returned exact plan (min×0.35 ≈ your ~4s/Q)
     const plan = data.plan || {};
-    const total = plan.total_questions || '?';
-    setStage(`Generating ${total} questions…`);
-    bumpTarget(15);
+    if (plan.total_questions) {
+        window._currentTarget = plan.total_questions;
+        // Update estimated total based on actual plan
+        P.estimatedTotalSec = estimateSecondsFor(plan.total_questions);
+    }
 
     await runBatches();
 }
 
-function endLoader(ok) {
+function endLoader() {
     isGenerating = false;
+    showLoading(false);
     const btn = document.getElementById('btn-generate');
-    if (!ok) {
-        showLoading(false);
-    }
     if (btn) { btn.disabled = false; btn.classList.remove('faded'); }
     refreshQuota();
 }
 
 async function runBatches() {
+    let exhaustedRetries = 0;
+
     while (true) {
         const { data } = await safeFetchJson(URL_BATCH, {
             method: 'POST',
@@ -637,39 +794,48 @@ async function runBatches() {
             body: '{}',
         });
 
-        // Feed server progress into smooth engine
-        if (typeof data.progress === 'number') bumpTarget(data.progress);
-
         // DONE
         if (data.success && data.done) {
-            finishProgress();
-            setStage('Almost done…');
-            setTimeout(() => {
-                setStage('Complete');
-                setTimeout(() => { window.location.href = URL_REVIEW; }, 500);
-            }, 700);
+            const nQ = data.count || window._currentTarget || 0;
+            completeProgress(nQ);
+            setTimeout(() => { window.location.href = URL_REVIEW; }, 1400);
             return;
         }
 
-        // RETRYABLE — quietly wait, keep bar crawling
+        // RETRYABLE — silently wait, keep bar moving via time engine
         if (!data.success && data.retryable) {
+            exhaustedRetries++;
             const wait = Math.max(1, Number(data.retry_after) || 3);
-            // Do NOT expose model/batch chatter. Just keep the same stage text.
+
+            // Only stop if we've been retrying way too long (models truly exhausted)
+            if (exhaustedRetries > 15) {
+                endLoader();
+                const retryMin = Math.ceil((data.retry_after || 3600) / 60);
+                showToast(
+                    `All AI models are busy right now. Please come back in about ${retryMin} minute${retryMin > 1 ? 's' : ''}.`,
+                    'error'
+                );
+                return;
+            }
             await new Promise(r => setTimeout(r, wait * 1000));
             continue;
         }
 
         // NEXT BATCH ready
         if (data.success && !data.done) {
-            // small pacing so we don't hammer server; bar keeps crawling
-            await new Promise(r => setTimeout(r, 500));
+            exhaustedRetries = 0; // reset on progress
+            await new Promise(r => setTimeout(r, 300));
             continue;
         }
 
-        // HARD FAIL
-        showToast(data.error || 'Generation failed.', 'error');
-        setStage('Something went wrong. Please try again.');
-        setTimeout(() => endLoader(false), 1800);
+        // HARD FAIL — all models exhausted / other unrecoverable error
+        endLoader();
+        const msg = (data.error || '').toLowerCase();
+        if (msg.includes('quota') || msg.includes('rate') || msg.includes('exhausted') || msg.includes('limit')) {
+            showToast('All AI models are exhausted. Please come back later today.', 'error');
+        } else {
+            showToast(data.error || 'Generation failed. Please try again.', 'error');
+        }
         return;
     }
 }
@@ -679,7 +845,7 @@ function showToast(msg, type) {
     if (!t) return;
     t.textContent = msg;
     t.className = 'toast ' + type + ' show';
-    setTimeout(() => t.classList.remove('show'), 4500);
+    setTimeout(() => t.classList.remove('show'), 5500);
 }
 </script>
 </body>
