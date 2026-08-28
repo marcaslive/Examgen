@@ -121,29 +121,54 @@
             background: rgba(0,0,0,0.82); z-index: 1000;
             justify-content: center; align-items: center; flex-direction: column;
             backdrop-filter: blur(5px);
+            padding: 20px;
         }
         .loading-overlay.show { display: flex; }
 
         .progress-circle {
-            position: relative; width: 140px; height: 140px; margin-bottom: 22px;
+            position: relative; width: 160px; height: 160px; margin-bottom: 24px;
         }
         .progress-circle svg { transform: rotate(-90deg); }
         .progress-circle circle { fill: none; stroke-width: 10; }
         .progress-bg { stroke: rgba(255,255,255,0.08); }
         .progress-fg {
-            stroke: #667eea; stroke-linecap: round;
-            stroke-dasharray: 377; stroke-dashoffset: 377;
-            transition: stroke-dashoffset 0.4s ease;
+            stroke: url(#gradient); stroke-linecap: round;
+            stroke-dasharray: 440; stroke-dashoffset: 440;
+            transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .progress-text {
             position: absolute; inset: 0;
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
-            color: #fff; font-weight: 700; font-size: 1.5rem;
+            color: #fff; font-weight: 700; font-size: 1.8rem;
+        }
+        .progress-sub {
+            font-size: 0.7rem;
+            font-weight: 400;
+            color: #9999b8;
+            margin-top: 2px;
         }
 
-        .loading-label { color: #fff; font-size: 1.1rem; margin-bottom: 6px; font-weight: 600; }
-        .loading-sub { color: #9999b8; font-size: 0.88rem; }
+        .loading-label { color: #fff; font-size: 1.15rem; margin-bottom: 6px; font-weight: 600; text-align: center; max-width: 500px; }
+        .loading-sub { color: #9999b8; font-size: 0.9rem; text-align: center; max-width: 500px; }
+        .loading-batch { color: #667eea; font-size: 0.8rem; margin-top: 8px; font-weight: 500; }
+        .loading-provider { color: #66eaa8; font-size: 0.75rem; margin-top: 4px; opacity: 0.75; font-family: monospace; }
+        
+        .loading-dots {
+            display: inline-block;
+            width: 30px;
+            text-align: left;
+        }
+        .loading-dots::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
 
         .toast { position: fixed; bottom: 30px; right: 30px; padding: 14px 24px; border-radius: 10px; color: #fff; font-size: 0.9rem; z-index: 1001; transform: translateY(100px); opacity: 0; transition: all 0.3s; max-width: 360px; }
         .toast.show { transform: translateY(0); opacity: 1; }
@@ -285,16 +310,25 @@
     <!-- Circular Progress Loading Overlay -->
     <div class="loading-overlay" id="loading">
         <div class="progress-circle">
-            <svg width="140" height="140" viewBox="0 0 140 140">
-                <circle class="progress-bg" cx="70" cy="70" r="60"></circle>
-                <circle class="progress-fg" id="progress-ring" cx="70" cy="70" r="60"></circle>
+            <svg width="160" height="160" viewBox="0 0 160 160">
+                <defs>
+                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#667eea"/>
+                        <stop offset="100%" stop-color="#764ba2"/>
+                    </linearGradient>
+                </defs>
+                <circle class="progress-bg" cx="80" cy="80" r="70"></circle>
+                <circle class="progress-fg" id="progress-ring" cx="80" cy="80" r="70"></circle>
             </svg>
             <div class="progress-text">
                 <span id="progress-pct">0%</span>
+                <span class="progress-sub" id="progress-count">0 / 0</span>
             </div>
         </div>
-        <p class="loading-label" id="loading-label">Generating Questions...</p>
-        <p class="loading-sub" id="loading-sub">Processing content in batches of 50</p>
+        <p class="loading-label" id="loading-label">Preparing<span class="loading-dots"></span></p>
+        <p class="loading-sub" id="loading-sub">Setting up your generation task</p>
+        <p class="loading-batch" id="loading-batch"></p>
+        <p class="loading-provider" id="loading-provider"></p>
     </div>
 
     <div class="toast" id="toast"></div>
@@ -306,13 +340,18 @@ const URL_BATCH  = '{% url "designer:generate_batch" %}';
 const URL_QUOTA  = '{% url "designer:generate_quota" %}';
 const URL_REVIEW = '{% url "designer:review_questions" %}';
 
-const CIRCUMFERENCE = 2 * Math.PI * 60; // 376.99
+const CIRCUMFERENCE = 2 * Math.PI * 70; // 440
 let selectedCount = '10';
 let pendingPayload = null;
 let isGenerating = false;
 let countdownTimer = null;
 
-// Initialize SVG circle
+// Smooth interpolation state
+let currentDisplayedProgress = 0;
+let targetProgress = 0;
+let smoothTimer = null;
+
+// Initialize SVG ring
 (function initRing() {
     const ring = document.getElementById('progress-ring');
     if (ring) {
@@ -321,7 +360,36 @@ let countdownTimer = null;
     }
 })();
 
-// SAFE FETCH HELPER (Immunizes against HTML error pages)
+/* ============================================
+   SMOOTH PROGRESS ANIMATION
+   Moves display gradually toward target; never freezes
+   ============================================ */
+function startSmoothLoop() {
+    if (smoothTimer) return;
+    smoothTimer = setInterval(() => {
+        if (currentDisplayedProgress < targetProgress) {
+            const diff = targetProgress - currentDisplayedProgress;
+            // Move faster on big gaps, slower near target
+            const step = Math.max(0.3, diff * 0.08);
+            currentDisplayedProgress = Math.min(targetProgress, currentDisplayedProgress + step);
+            paintRing(currentDisplayedProgress);
+        }
+    }, 60);
+}
+function stopSmoothLoop() {
+    if (smoothTimer) { clearInterval(smoothTimer); smoothTimer = null; }
+}
+function paintRing(pct) {
+    const ring = document.getElementById('progress-ring');
+    const p = document.getElementById('progress-pct');
+    const rounded = Math.round(pct);
+    if (ring) ring.style.strokeDashoffset = String(CIRCUMFERENCE - (pct / 100) * CIRCUMFERENCE);
+    if (p) p.textContent = rounded + '%';
+}
+
+/* ============================================
+   SAFE JSON FETCH
+   ============================================ */
 async function safeFetchJson(url, options = {}) {
     try {
         const res = await fetch(url, options);
@@ -330,13 +398,13 @@ async function safeFetchJson(url, options = {}) {
             const data = JSON.parse(text);
             return { status: res.status, ok: res.ok, data: data };
         } catch (e) {
-            console.error("Server returned non-JSON response:", text);
+            console.error("Non-JSON response:", text.substring(0, 400));
             return {
                 status: res.status,
                 ok: false,
                 data: {
                     success: false,
-                    error: `Server returned error (${res.status}). Check server console logs.`
+                    error: `Server returned error (${res.status}). Check server logs.`
                 }
             };
         }
@@ -344,12 +412,14 @@ async function safeFetchJson(url, options = {}) {
         return {
             status: 0,
             ok: false,
-            data: { success: false, error: "Network connection lost. Retrying..." }
+            data: { success: false, error: "Network error. Retrying..." }
         };
     }
 }
 
-// Real-Time Quota Fetcher
+/* ============================================
+   QUOTA REFRESH
+   ============================================ */
 function refreshQuota() {
     safeFetchJson(URL_QUOTA, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(({ data }) => {
@@ -385,7 +455,9 @@ function refreshQuota() {
 refreshQuota();
 setInterval(refreshQuota, 15000);
 
-// Countdown Timer & Button Dimming
+/* ============================================
+   COUNTDOWN
+   ============================================ */
 function startCountdown(seconds) {
     const banner = document.getElementById('countdown-banner');
     const timeEl = document.getElementById('countdown-time');
@@ -417,7 +489,9 @@ function startCountdown(seconds) {
     countdownTimer = setInterval(tick, 1000);
 }
 
-// UI Selection Handlers
+/* ============================================
+   UI HANDLERS
+   ============================================ */
 document.querySelectorAll('.doc-checkbox').forEach(cb => {
     cb.addEventListener('change', function() {
         this.closest('.doc-select-item').classList.toggle('selected', this.checked);
@@ -452,18 +526,29 @@ document.querySelectorAll('.count-btn').forEach(btn => {
     });
 });
 
-function setProgress(pct, label, sub) {
-    pct = Math.max(0, Math.min(100, Math.round(pct)));
-    const ring = document.getElementById('progress-ring');
-    if (ring) ring.style.strokeDashoffset = String(CIRCUMFERENCE - (pct / 100) * CIRCUMFERENCE);
-    const p = document.getElementById('progress-pct');
-    if (p) p.textContent = pct + '%';
-    if (label) document.getElementById('loading-label').textContent = label;
-    if (sub)   document.getElementById('loading-sub').textContent = sub;
+/* ============================================
+   PROGRESS UI SETTER
+   ============================================ */
+function setStatus({ progress, label, sub, batchInfo, provider, countText }) {
+    if (progress !== undefined && progress !== null) {
+        targetProgress = Math.max(0, Math.min(100, progress));
+        startSmoothLoop();
+    }
+    if (label !== undefined)     document.getElementById('loading-label').innerHTML = label;
+    if (sub !== undefined)       document.getElementById('loading-sub').textContent = sub;
+    if (batchInfo !== undefined) document.getElementById('loading-batch').textContent = batchInfo;
+    if (provider !== undefined)  document.getElementById('loading-provider').textContent = provider;
+    if (countText !== undefined) document.getElementById('progress-count').textContent = countText;
 }
 
 function showLoading(show) {
     document.getElementById('loading').classList.toggle('show', show);
+    if (!show) {
+        stopSmoothLoop();
+        currentDisplayedProgress = 0;
+        targetProgress = 0;
+        paintRing(0);
+    }
 }
 
 function buildPayload() {
@@ -493,6 +578,9 @@ function buildPayload() {
     return payload;
 }
 
+/* ============================================
+   GENERATE FLOW
+   ============================================ */
 async function onGenerateClick() {
     if (isGenerating) return;
     const payload = buildPayload();
@@ -502,6 +590,17 @@ async function onGenerateClick() {
     const btn = document.getElementById('btn-generate');
     btn.disabled = true;
 
+    isGenerating = true;
+    showLoading(true);
+    setStatus({
+        progress: 2,
+        label: 'Initializing<span class="loading-dots"></span>',
+        sub: 'Reading documents and preparing generation plan',
+        batchInfo: '',
+        provider: '',
+        countText: '0 / ?'
+    });
+
     const { status, data } = await safeFetchJson(URL_START, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
@@ -510,6 +609,8 @@ async function onGenerateClick() {
 
     if (status === 429) {
         btn.disabled = false;
+        isGenerating = false;
+        showLoading(false);
         startCountdown(data.retry_after || 60);
         showToast(data.error || 'Rate limit active.', 'error');
         return;
@@ -517,60 +618,116 @@ async function onGenerateClick() {
 
     if (!data.success) {
         btn.disabled = false;
+        isGenerating = false;
+        showLoading(false);
         showToast(data.error || 'Could not initialize generation task.', 'error');
         return;
     }
 
-    startGeneration();
+    const plan = data.plan || {};
+    setStatus({
+        progress: 5,
+        label: `Generating ${plan.total_questions || '?'} questions<span class="loading-dots"></span>`,
+        sub: `Split into ${plan.total_batches || '?'} batches of ${plan.batch_size || '?'}`,
+        batchInfo: `Estimated time: ${plan.estimated_minutes || '?'} min`,
+        countText: `0 / ${plan.total_questions || '?'}`
+    });
+
+    await runBatches();
 }
 
-async function startGeneration() {
-    isGenerating = true;
+async function runBatches() {
+    let stopped = false;
     const btn = document.getElementById('btn-generate');
-    if (btn) { btn.disabled = true; btn.classList.add('faded'); }
+    if (btn) btn.classList.add('faded');
 
-    showLoading(true);
-    setProgress(1, 'Initializing Generation...', 'Preparing source material');
-
-    let isDone = false;
-
-    while (!isDone) {
+    while (!stopped) {
         const { data } = await safeFetchJson(URL_BATCH, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
             body: '{}',
         });
 
-        if (!data.success) {
-            if (data.retryable) {
-                const waitSec = data.retry_after || 4;
-                setProgress(data.progress || 5, 'Rate limit active. Pausing...', `Resuming batch in ${waitSec}s`);
-                await new Promise(r => setTimeout(r, waitSec * 1000));
-                continue;
-            } else {
-                showToast(data.error || 'Batch generation encountered an error.', 'error');
-                showLoading(false);
-                isGenerating = false;
-                if (btn) { btn.disabled = false; btn.classList.remove('faded'); }
-                refreshQuota();
-                return;
-            }
-        }
+        // Always update progress from server (even on error responses)
+        const so_far    = data.total_so_far ?? 0;
+        const target    = data.total_questions ?? 0;
+        const bidx      = data.batch_index ?? 0;
+        const btotal    = data.total_batches ?? 0;
+        const progress  = data.progress ?? 0;
+        const message   = data.message || '';
+        const provider  = data.provider ? `via ${data.provider}` : '';
 
-        // True progress percentage
-        const progressPct = data.progress || 0;
-        setProgress(progressPct, `Generated ${data.total_so_far} of ${data.total_questions || ''} questions`, `Processing batch ${data.batch_index} of ${data.total_batches}`);
-
-        if (data.done) {
-            isDone = true;
-            setProgress(100, 'Generation Complete!', 'Redirecting to review page...');
+        // ============ SUCCESS - DONE ============
+        if (data.success && data.done) {
+            setStatus({
+                progress: 100,
+                label: '✅ Generation Complete!',
+                sub: `${data.count} questions ready · Redirecting to review...`,
+                batchInfo: '',
+                provider: '',
+                countText: `${data.count} / ${data.count}`
+            });
             showToast(`${data.count} questions generated successfully!`, 'success');
-            setTimeout(() => { window.location.href = URL_REVIEW; }, 400);
+            setTimeout(() => { window.location.href = URL_REVIEW; }, 800);
             return;
         }
 
-        // Pacing delay
-        await new Promise(r => setTimeout(r, 1200));
+        // ============ SUCCESS - NEXT BATCH ============
+        if (data.success && !data.done) {
+            setStatus({
+                progress: progress,
+                label: `Generating<span class="loading-dots"></span>`,
+                sub: message || `Batch ${bidx} of ${btotal} complete`,
+                batchInfo: `📊 ${so_far} of ${target} questions collected`,
+                provider: provider,
+                countText: `${so_far} / ${target}`
+            });
+            // Small pacing pause between batches
+            await new Promise(r => setTimeout(r, 800));
+            continue;
+        }
+
+        // ============ RETRYABLE (rate limit / AI busy) ============
+        if (data.retryable) {
+            const waitSec = data.retry_after || 4;
+            let remaining = waitSec;
+
+            // Show live countdown during pause
+            for (let i = 0; i < waitSec; i++) {
+                setStatus({
+                    progress: progress,
+                    label: `⏳ Pausing<span class="loading-dots"></span>`,
+                    sub: data.error || 'AI is busy — retrying automatically',
+                    batchInfo: `Retrying in ${remaining}s · ${so_far}/${target} generated`,
+                    provider: provider,
+                    countText: `${so_far} / ${target}`
+                });
+                await new Promise(r => setTimeout(r, 1000));
+                remaining--;
+            }
+            continue;
+        }
+
+        // ============ HARD FAIL ============
+        setStatus({
+            progress: progress,
+            label: '❌ Generation Failed',
+            sub: data.error || 'Unknown error',
+            batchInfo: `Collected ${so_far}/${target} before stopping`,
+            provider: '',
+            countText: `${so_far} / ${target}`
+        });
+        showToast(data.error || 'Batch generation failed.', 'error');
+        
+        setTimeout(() => {
+            showLoading(false);
+            isGenerating = false;
+            const btnEl = document.getElementById('btn-generate');
+            if (btnEl) { btnEl.disabled = false; btnEl.classList.remove('faded'); }
+            refreshQuota();
+        }, 3000);
+        stopped = true;
+        return;
     }
 }
 
