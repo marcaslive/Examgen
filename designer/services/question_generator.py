@@ -28,14 +28,11 @@ except ImportError:
     HAS_GEMINI_SDK = False
 
 # ============================================================
-# CONFIG — high token budgets (100+ Qs × many runs)
+# CONFIG
 # ============================================================
 MIN_QUESTIONS = 10
 MAX_QUESTIONS = 500
-
-# With large output tokens, 25/batch is smooth:
-# - 100 questions = 4 batches (~25% loader steps each)
-BATCH_LIMIT = 25
+BATCH_LIMIT = 20  # 20 questions per batch
 
 PRIMARY_MODEL = getattr(settings, "AI_MODEL", "gemini-2.0-flash")
 GEMINI_MODELS_CASCADE = [
@@ -46,28 +43,28 @@ GEMINI_MODELS_CASCADE = [
     "gemini-1.5-pro",
 ]
 
-# ---- TOKEN BUDGETS (raised) ----
-GEMINI_MAX_OUTPUT_TOKENS = 65536  # requested; API may clamp per model
-HF_MAX_TOKENS = 32768             # HF chat/infer output cap
+# ---- TOKEN BUDGETS ----
+GEMINI_MAX_OUTPUT_TOKENS = 8192
+HF_MAX_TOKENS = 4096
 
-# Input study text kept for the model (chars ~ token proxy)
-GEMINI_INPUT_CHARS = 120000
-HF_INPUT_CHARS = 60000
+GEMINI_INPUT_CHARS = 40000
+HF_INPUT_CHARS = 20000
 
-# Gentle pacing / retry policy
-MIN_REQUEST_INTERVAL = 2.0
-MAX_FAIL_STREAK = 8
-RATE_LIMIT_BACKOFF = 12
+# Fast HTTP Timeout (prevents hanging / Max retries exceeded errors)
+HTTP_TIMEOUT = 25
+
+MIN_REQUEST_INTERVAL = 1.5
+MAX_FAIL_STREAK = 6
+RATE_LIMIT_BACKOFF = 10
 
 TASK_TIMEOUT = 7200
 REVIEW_TIMEOUT = 7200
 
-# HF models that commonly work on serverless / router
+# Active Hugging Face Serverless Models
 HF_MODELS = [
+    "meta-llama/Llama-3.2-3B-Instruct",
     "Qwen/Qwen2.5-7B-Instruct",
     "mistralai/Mistral-7B-Instruct-v0.3",
-    "HuggingFaceH4/zephyr-7b-beta",
-    "microsoft/Phi-3-mini-4k-instruct",
 ]
 
 
@@ -78,7 +75,7 @@ def parse_keys(raw_val: str) -> List[str]:
 
 
 # ============================================================
-# LIGHT RATE LIMITER (soft only)
+# RATE LIMITER
 # ============================================================
 class GeminiRateLimiter:
     LAST_CALL_KEY = "qg:quota:last_call"
@@ -166,83 +163,77 @@ class QuestionGenerator:
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
         ]
 
-        # -------- GEMINI (primary) --------
-        for key in self.gemini_keys:
-            for model in GEMINI_MODELS_CASCADE:
-                # A) SDK
-                if HAS_GEMINI_SDK:
+        # -------- 1. PRIMARY: GEMINI CASCADE --------
+        if self.gemini_keys:
+            for key in self.gemini_keys:
+                for model in GEMINI_MODELS_CASCADE:
+                    # Method A: SDK
+                    if HAS_GEMINI_SDK:
+                        try:
+                            logger.info(f"Gemini SDK → {model} batch {batch_index + 1}/{total_batches}")
+                            client = genai.Client(api_key=key)
+                            config = types.GenerateContentConfig(
+                                temperature=0.6,
+                                max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS,
+                                response_mime_type="application/json",
+                            )
+                            resp = client.models.generate_content(
+                                model=model, contents=prompt_gemini, config=config
+                            )
+                            content = getattr(resp, "text", "") or ""
+                            qs = self._parse_response(content)
+                            if qs:
+                                GeminiRateLimiter.record_call()
+                                self.last_provider = f"gemini-sdk:{model}"
+                                logger.info(f"✅ SDK {model}: {len(qs)} Qs")
+                                return qs[:num_questions]
+                        except Exception as e:
+                            self.last_error = f"SDK {model}: {e}"
+                            logger.warning(self.last_error)
+
+                    # Method B: Direct REST
                     try:
-                        logger.info(
-                            f"Gemini SDK → {model} batch {batch_index + 1}/{total_batches}"
-                        )
-                        client = genai.Client(api_key=key)
-                        config = types.GenerateContentConfig(
-                            temperature=0.6,
-                            max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS,
-                            response_mime_type="application/json",
-                        )
-                        resp = client.models.generate_content(
-                            model=model, contents=prompt_gemini, config=config
-                        )
-                        content = getattr(resp, "text", "") or ""
-                        qs = self._parse_response(content)
-                        if qs:
-                            GeminiRateLimiter.record_call()
-                            self.last_provider = f"gemini-sdk:{model}"
-                            logger.info(f"✅ SDK {model}: {len(qs)} Qs")
-                            return qs[:num_questions]
-                        self.last_error = f"SDK {model}: empty/unparseable"
-                    except Exception as e:
-                        err = str(e)
-                        self.last_error = f"SDK {model}: {err}"
-                        logger.warning(self.last_error)
-
-                # B) REST
-                try:
-                    logger.info(
-                        f"Gemini REST → {model} batch {batch_index + 1}/{total_batches}"
-                    )
-                    url = (
-                        "https://generativelanguage.googleapis.com/v1beta/models/"
-                        f"{model}:generateContent?key={key}"
-                    )
-                    payload = {
-                        "contents": [{"parts": [{"text": prompt_gemini}]}],
-                        "safetySettings": safety_rest,
-                        "generationConfig": {
-                            "temperature": 0.6,
-                            "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
-                            "responseMimeType": "application/json",
-                        },
-                    }
-                    r = requests.post(url, json=payload, timeout=180)
-                    if r.status_code == 200:
-                        data = r.json()
-                        cands = data.get("candidates") or []
-                        if not cands:
-                            self.last_error = f"REST {model}: no candidates {str(data)[:200]}"
+                        logger.info(f"Gemini REST → {model} batch {batch_index + 1}/{total_batches}")
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+                        payload = {
+                            "contents": [{"parts": [{"text": prompt_gemini}]}],
+                            "safetySettings": safety_rest,
+                            "generationConfig": {
+                                "temperature": 0.6,
+                                "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
+                                "responseMimeType": "application/json",
+                            },
+                        }
+                        r = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=HTTP_TIMEOUT)
+                        if r.status_code == 200:
+                            data = r.json()
+                            cands = data.get("candidates") or []
+                            if not cands:
+                                self.last_error = f"Gemini {model}: no content generated"
+                                continue
+                            parts = cands[0].get("content", {}).get("parts") or []
+                            content = parts[0].get("text", "") if parts else ""
+                            qs = self._parse_response(content)
+                            if qs:
+                                GeminiRateLimiter.record_call()
+                                self.last_provider = f"gemini-rest:{model}"
+                                logger.info(f"✅ REST {model}: {len(qs)} Qs")
+                                return qs[:num_questions]
+                        elif r.status_code == 429:
+                            self.last_error = f"Gemini {model} rate limited (429)"
+                            logger.warning(self.last_error)
                             continue
-                        parts = cands[0].get("content", {}).get("parts") or []
-                        content = parts[0].get("text", "") if parts else ""
-                        qs = self._parse_response(content)
-                        if qs:
-                            GeminiRateLimiter.record_call()
-                            self.last_provider = f"gemini-rest:{model}"
-                            logger.info(f"✅ REST {model}: {len(qs)} Qs")
-                            return qs[:num_questions]
-                        self.last_error = f"REST {model}: unparseable output"
-                    elif r.status_code == 429:
-                        self.last_error = f"REST {model}: 429 RATE LIMITED"
+                        else:
+                            self.last_error = f"Gemini {model} error ({r.status_code})"
+                            logger.warning(self.last_error)
+                    except requests.exceptions.RequestException as req_err:
+                        self.last_error = f"Gemini {model} connection error"
+                        logger.warning(f"Gemini HTTP connection error: {req_err}")
+                    except Exception as e:
+                        self.last_error = f"Gemini {model}: {e}"
                         logger.warning(self.last_error)
-                        continue
-                    else:
-                        self.last_error = f"REST {model}: {r.status_code} {r.text[:250]}"
-                        logger.warning(self.last_error)
-                except Exception as e:
-                    self.last_error = f"REST {model}: {e}"
-                    logger.warning(self.last_error)
 
-        # -------- HUGGING FACE fallback (multi-model + multi-endpoint) --------
+        # -------- 2. FALLBACK: HUGGING FACE --------
         if self.hf_token:
             qs = self._generate_hf(full_text, num_questions, batch_index, total_batches)
             if qs:
@@ -267,88 +258,40 @@ class QuestionGenerator:
         chat_urls = [
             "https://router.huggingface.co/v1/chat/completions",
             "https://router.huggingface.co/hf-inference/v1/chat/completions",
-            "https://api-inference.huggingface.co/v1/chat/completions",
         ]
 
         for model in HF_MODELS:
-            messages = [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an expert exam creator. "
-                        "Return valid JSON only. No markdown."
-                    ),
-                },
-                {"role": "user", "content": prompt},
-            ]
             body = {
                 "model": model,
-                "messages": messages,
+                "messages": [
+                    {"role": "system", "content": "You are an expert exam creator. Return valid JSON only."},
+                    {"role": "user", "content": prompt},
+                ],
                 "temperature": 0.6,
                 "max_tokens": HF_MAX_TOKENS,
             }
 
             for url in chat_urls:
                 try:
-                    logger.info(f"HF chat → {model} @ {url.split('//')[1][:40]}")
-                    r = requests.post(url, headers=headers, json=body, timeout=180)
+                    logger.info(f"HF chat → {model}")
+                    r = requests.post(url, headers=headers, json=body, timeout=HTTP_TIMEOUT)
                     if r.status_code == 200:
                         data = r.json()
-                        content = (
-                            data.get("choices", [{}])[0]
-                            .get("message", {})
-                            .get("content", "")
-                        )
+                        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                         qs = self._parse_response(content)
                         if qs:
                             self.last_provider = f"hf:{model}"
                             logger.info(f"✅ HF {model}: {len(qs)} Qs")
                             return qs
-                        self.last_error = f"HF {model}: unparseable"
                     elif r.status_code == 429:
-                        self.last_error = f"HF {model}: 429 RATE LIMITED"
-                        logger.warning(self.last_error)
+                        self.last_error = f"HF {model} rate limited"
                     else:
-                        self.last_error = f"HF {model}: {r.status_code} {r.text[:180]}"
-                        logger.warning(self.last_error)
+                        self.last_error = f"HF {model} status {r.status_code}"
+                except requests.exceptions.RequestException:
+                    self.last_error = f"HF {model} connection timeout"
+                    logger.warning(f"HF connection error on {model}")
                 except Exception as e:
                     self.last_error = f"HF {model}: {e}"
-                    logger.warning(self.last_error)
-
-            # Text-generation fallback for same model
-            try:
-                infer_url = f"https://api-inference.huggingface.co/models/{model}"
-                logger.info(f"HF infer → {model}")
-                r = requests.post(
-                    infer_url,
-                    headers=headers,
-                    json={
-                        "inputs": prompt,
-                        "parameters": {
-                            "max_new_tokens": HF_MAX_TOKENS,
-                            "temperature": 0.6,
-                            "return_full_text": False,
-                        },
-                    },
-                    timeout=180,
-                )
-                if r.status_code == 200:
-                    data = r.json()
-                    if isinstance(data, list) and data:
-                        content = data[0].get("generated_text", "")
-                    elif isinstance(data, dict):
-                        content = data.get("generated_text", str(data))
-                    else:
-                        content = str(data)
-                    qs = self._parse_response(content)
-                    if qs:
-                        self.last_provider = f"hf-infer:{model}"
-                        logger.info(f"✅ HF infer {model}: {len(qs)} Qs")
-                        return qs
-                else:
-                    self.last_error = f"HF infer {model}: {r.status_code} {r.text[:180]}"
-            except Exception as e:
-                self.last_error = f"HF infer {model}: {e}"
 
         return []
 
@@ -457,7 +400,7 @@ STUDY MATERIAL:
 
 
 # ============================================================
-# MANAGER — smooth progress, full target, resilient retries
+# MANAGER
 # ============================================================
 class ExamGenerationManager:
     @staticmethod
@@ -537,7 +480,7 @@ class ExamGenerationManager:
                     "total_questions": count,
                     "total_batches": len(batches),
                     "batch_size": BATCH_LIMIT,
-                    "estimated_minutes": round(len(batches) * 0.5, 1),
+                    "estimated_minutes": round(len(batches) * 0.3, 1),
                 },
                 "progress": 1,
                 "message": f"Plan ready: {count} questions in {len(batches)} batches",
@@ -629,7 +572,7 @@ class ExamGenerationManager:
                         "quota": cls.get_quota_status(),
                     }
 
-                retry_after = RATE_LIMIT_BACKOFF if is_rate else 4
+                retry_after = RATE_LIMIT_BACKOFF if is_rate else 3
                 return (429 if is_rate else 503), {
                     "success": False,
                     "retryable": True,
