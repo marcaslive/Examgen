@@ -32,7 +32,7 @@ except ImportError:
 # ============================================================
 MIN_QUESTIONS = 10
 MAX_QUESTIONS = 500
-BATCH_LIMIT = 20  # 20 questions per batch
+BATCH_LIMIT = 20
 
 PRIMARY_MODEL = getattr(settings, "AI_MODEL", "gemini-2.0-flash")
 GEMINI_MODELS_CASCADE = [
@@ -43,17 +43,13 @@ GEMINI_MODELS_CASCADE = [
     "gemini-1.5-pro",
 ]
 
-# ---- TOKEN BUDGETS ----
-# Gemini supports large output windows natively:
 GEMINI_MAX_OUTPUT_TOKENS = 8192
 GEMINI_INPUT_CHARS = 40000
 
-# Hugging Face free serverless enforces strict max 2048-4096 output cap:
+# HF free serverless is strict about max_tokens
 HF_MAX_TOKENS = 2048
-HF_INPUT_CHARS = 20000
-
-# Fast HTTP Timeout (prevents hanging connection pool errors)
-HTTP_TIMEOUT = 25
+HF_INPUT_CHARS = 18000
+HTTP_TIMEOUT = 30
 
 MIN_REQUEST_INTERVAL = 1.5
 MAX_FAIL_STREAK = 6
@@ -62,12 +58,20 @@ RATE_LIMIT_BACKOFF = 10
 TASK_TIMEOUT = 7200
 REVIEW_TIMEOUT = 7200
 
-# Active Hugging Face Serverless Chat Models
-HF_MODELS = [
-    "Qwen/Qwen2.5-Coder-32B-Instruct",
-    "meta-llama/Llama-3.1-8B-Instruct",
+# ONLY models that work with OpenAI-style chat completions on HF router
+HF_CHAT_MODELS = [
     "Qwen/Qwen2.5-7B-Instruct",
+    "HuggingFaceH4/zephyr-7b-beta",
+    "meta-llama/Meta-Llama-3-8B-Instruct",
+    "microsoft/Phi-3.5-mini-instruct",
+    "google/gemma-2-2b-it",
+]
+
+# Instruct models for classic text-generation API (NOT chat)
+HF_TEXT_MODELS = [
     "mistralai/Mistral-7B-Instruct-v0.3",
+    "mistralai/Mistral-7B-Instruct-v0.2",
+    "google/flan-t5-large",
 ]
 
 
@@ -77,9 +81,6 @@ def parse_keys(raw_val: str) -> List[str]:
     return [k.strip() for k in str(raw_val).split(",") if k.strip()]
 
 
-# ============================================================
-# RATE LIMITER
-# ============================================================
 class GeminiRateLimiter:
     LAST_CALL_KEY = "qg:quota:last_call"
     DAY_KEY_PREFIX = "qg:quota:calls_day:"
@@ -93,10 +94,8 @@ class GeminiRateLimiter:
         now = time.time()
         last = float(cache.get(cls.LAST_CALL_KEY, 0) or 0)
         wait_sec = 0
-        if last:
-            elapsed = now - last
-            if elapsed < MIN_REQUEST_INTERVAL:
-                wait_sec = int(MIN_REQUEST_INTERVAL - elapsed) + 1
+        if last and (now - last) < MIN_REQUEST_INTERVAL:
+            wait_sec = int(MIN_REQUEST_INTERVAL - (now - last)) + 1
 
         keys = parse_keys(getattr(settings, "GEMINI_API_KEY", "") or "")
         num_keys = max(1, len(keys))
@@ -121,9 +120,6 @@ class GeminiRateLimiter:
         cache.set(dk, int(cache.get(dk, 0) or 0) + 1, timeout=172800)
 
 
-# ============================================================
-# AI GENERATOR
-# ============================================================
 class QuestionGenerator:
     def __init__(self):
         self.gemini_keys = parse_keys(getattr(settings, "GEMINI_API_KEY", "") or "")
@@ -142,22 +138,13 @@ class QuestionGenerator:
             return "\n\n".join(str(v) for v in text)
         return str(text or "")
 
-    def generate(
-        self,
-        text,
-        num_questions: int,
-        batch_index: int = 0,
-        total_batches: int = 1,
-    ) -> List[dict]:
+    def generate(self, text, num_questions: int, batch_index: int = 0, total_batches: int = 1) -> List[dict]:
         if not self.available:
             self.last_error = "No GEMINI_API_KEY or HUGGINGFACE_TOKEN configured."
             return []
 
         full_text = self._text_to_str(text)
-        prepared_gemini = full_text[:GEMINI_INPUT_CHARS]
-        prompt_gemini = self._build_prompt(
-            prepared_gemini, num_questions, batch_index, total_batches
-        )
+        prompt = self._build_prompt(full_text[:GEMINI_INPUT_CHARS], num_questions, batch_index, total_batches)
 
         safety_rest = [
             {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -166,82 +153,77 @@ class QuestionGenerator:
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
         ]
 
-        # -------- 1. PRIMARY: GEMINI CASCADE --------
-        if self.gemini_keys:
-            for key in self.gemini_keys:
-                for model in GEMINI_MODELS_CASCADE:
-                    # Method A: SDK
-                    if HAS_GEMINI_SDK:
-                        try:
-                            logger.info(f"Gemini SDK → {model} batch {batch_index + 1}/{total_batches}")
-                            client = genai.Client(api_key=key)
-                            config = types.GenerateContentConfig(
-                                temperature=0.6,
-                                max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS,
-                                response_mime_type="application/json",
-                            )
-                            resp = client.models.generate_content(
-                                model=model, contents=prompt_gemini, config=config
-                            )
-                            content = getattr(resp, "text", "") or ""
-                            qs = self._parse_response(content)
-                            if qs:
-                                GeminiRateLimiter.record_call()
-                                self.last_provider = f"gemini-sdk:{model}"
-                                logger.info(f"✅ SDK {model}: {len(qs)} Qs")
-                                return qs[:num_questions]
-                        except Exception as e:
-                            self.last_error = f"SDK {model}: {e}"
-                            logger.warning(self.last_error)
-
-                    # Method B: Direct REST
+        # -------- GEMINI PRIMARY --------
+        for key in self.gemini_keys:
+            for model in GEMINI_MODELS_CASCADE:
+                if HAS_GEMINI_SDK:
                     try:
-                        logger.info(f"Gemini REST → {model} batch {batch_index + 1}/{total_batches}")
-                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
-                        payload = {
-                            "contents": [{"parts": [{"text": prompt_gemini}]}],
-                            "safetySettings": safety_rest,
-                            "generationConfig": {
-                                "temperature": 0.6,
-                                "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
-                                "responseMimeType": "application/json",
-                            },
-                        }
-                        r = requests.post(url, json=payload, headers={"Content-Type": "application/json"}, timeout=HTTP_TIMEOUT)
-                        if r.status_code == 200:
-                            data = r.json()
-                            cands = data.get("candidates") or []
-                            if not cands:
-                                self.last_error = f"Gemini {model}: empty candidates response"
-                                continue
-                            parts = cands[0].get("content", {}).get("parts") or []
-                            content = parts[0].get("text", "") if parts else ""
-                            qs = self._parse_response(content)
-                            if qs:
-                                GeminiRateLimiter.record_call()
-                                self.last_provider = f"gemini-rest:{model}"
-                                logger.info(f"✅ REST {model}: {len(qs)} Qs")
-                                return qs[:num_questions]
-                        elif r.status_code == 429:
-                            self.last_error = f"Gemini {model} rate limited (429)"
-                            logger.warning(self.last_error)
-                            continue
-                        else:
-                            try:
-                                err_data = r.json().get("error", {})
-                                err_detail = err_data.get("message") or r.text[:120]
-                            except Exception:
-                                err_detail = r.text[:120]
-                            self.last_error = f"Gemini {model} ({r.status_code}): {err_detail}"
-                            logger.warning(self.last_error)
-                    except requests.exceptions.RequestException as req_err:
-                        self.last_error = f"Gemini {model} connection timeout"
-                        logger.warning(f"Gemini HTTP connection error: {req_err}")
+                        logger.info(f"Gemini SDK → {model} batch {batch_index+1}/{total_batches}")
+                        client = genai.Client(api_key=key)
+                        config = types.GenerateContentConfig(
+                            temperature=0.6,
+                            max_output_tokens=GEMINI_MAX_OUTPUT_TOKENS,
+                            response_mime_type="application/json",
+                        )
+                        resp = client.models.generate_content(model=model, contents=prompt, config=config)
+                        content = getattr(resp, "text", "") or ""
+                        qs = self._parse_response(content)
+                        if qs:
+                            GeminiRateLimiter.record_call()
+                            self.last_provider = f"gemini-sdk:{model}"
+                            return qs[:num_questions]
                     except Exception as e:
-                        self.last_error = f"Gemini {model}: {e}"
+                        self.last_error = f"SDK {model}: {e}"
                         logger.warning(self.last_error)
 
-        # -------- 2. FALLBACK: HUGGING FACE --------
+                try:
+                    logger.info(f"Gemini REST → {model} batch {batch_index+1}/{total_batches}")
+                    url = (
+                        f"https://generativelanguage.googleapis.com/v1beta/models/"
+                        f"{model}:generateContent?key={key}"
+                    )
+                    payload = {
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "safetySettings": safety_rest,
+                        "generationConfig": {
+                            "temperature": 0.6,
+                            "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
+                            "responseMimeType": "application/json",
+                        },
+                    }
+                    r = requests.post(url, json=payload, timeout=HTTP_TIMEOUT)
+                    if r.status_code == 200:
+                        data = r.json()
+                        cands = data.get("candidates") or []
+                        if not cands:
+                            self.last_error = f"Gemini {model}: empty candidates"
+                            continue
+                        parts = (cands[0].get("content") or {}).get("parts") or []
+                        content = parts[0].get("text", "") if parts else ""
+                        qs = self._parse_response(content)
+                        if qs:
+                            GeminiRateLimiter.record_call()
+                            self.last_provider = f"gemini-rest:{model}"
+                            return qs[:num_questions]
+                        self.last_error = f"Gemini {model}: unparseable output"
+                    elif r.status_code == 429:
+                        self.last_error = f"Gemini {model}: 429 RATE LIMITED"
+                        logger.warning(self.last_error)
+                    else:
+                        try:
+                            msg = (r.json().get("error") or {}).get("message") or r.text[:150]
+                        except Exception:
+                            msg = r.text[:150]
+                        self.last_error = f"Gemini {model} ({r.status_code}): {msg}"
+                        logger.warning(self.last_error)
+                except requests.exceptions.RequestException as e:
+                    self.last_error = f"Gemini {model}: connection error ({e.__class__.__name__})"
+                    logger.warning(self.last_error)
+                except Exception as e:
+                    self.last_error = f"Gemini {model}: {e}"
+                    logger.warning(self.last_error)
+
+        # -------- HF FALLBACK --------
         if self.hf_token:
             qs = self._generate_hf(full_text, num_questions, batch_index, total_batches)
             if qs:
@@ -249,71 +231,128 @@ class QuestionGenerator:
 
         return []
 
-    def _generate_hf(
-        self,
-        full_text: str,
-        num_questions: int,
-        batch_index: int,
-        total_batches: int,
-    ) -> List[dict]:
-        short_text = full_text[:HF_INPUT_CHARS]
-        prompt = self._build_prompt(short_text, num_questions, batch_index, total_batches)
+    def _hf_error_message(self, r: requests.Response) -> str:
+        try:
+            j = r.json()
+            err = j.get("error", j)
+            if isinstance(err, dict):
+                return str(err.get("message") or err)[:180]
+            return str(err)[:180]
+        except Exception:
+            return (r.text or "")[:180]
 
+    def _generate_hf(self, full_text, num_questions, batch_index, total_batches) -> List[dict]:
+        prompt = self._build_prompt(full_text[:HF_INPUT_CHARS], num_questions, batch_index, total_batches)
         headers = {
             "Authorization": f"Bearer {self.hf_token}",
             "Content-Type": "application/json",
         }
+
         chat_urls = [
-            "https://router.huggingface.co/hf-inference/v1/chat/completions",
             "https://router.huggingface.co/v1/chat/completions",
+            "https://router.huggingface.co/hf-inference/v1/chat/completions",
         ]
 
-        for model in HF_MODELS:
+        # 1) Chat models only on chat endpoints
+        for model in HF_CHAT_MODELS:
             body = {
                 "model": model,
                 "messages": [
-                    {"role": "system", "content": "You are an expert exam creator. Return valid JSON only."},
+                    {
+                        "role": "system",
+                        "content": "You are an expert exam creator. Return valid JSON only. No markdown.",
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 "temperature": 0.6,
                 "max_tokens": HF_MAX_TOKENS,
             }
-
             for url in chat_urls:
                 try:
                     logger.info(f"HF chat → {model}")
                     r = requests.post(url, headers=headers, json=body, timeout=HTTP_TIMEOUT)
                     if r.status_code == 200:
-                        data = r.json()
-                        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                        content = (
+                            r.json().get("choices", [{}])[0]
+                            .get("message", {})
+                            .get("content", "")
+                        )
                         qs = self._parse_response(content)
                         if qs:
-                            self.last_provider = f"hf:{model}"
-                            logger.info(f"✅ HF {model}: {len(qs)} Qs")
+                            self.last_provider = f"hf-chat:{model}"
+                            logger.info(f"✅ HF chat {model}: {len(qs)} Qs")
                             return qs
-                    else:
-                        try:
-                            err_json = r.json()
-                            err_msg = err_json.get("error", {})
-                            if isinstance(err_msg, dict):
-                                err_msg = err_msg.get("message", r.text[:120])
-                            elif not err_msg:
-                                err_msg = r.text[:120]
-                        except Exception:
-                            err_msg = r.text[:120]
-                        self.last_error = f"HF {model.split('/')[-1]} ({r.status_code}): {err_msg}"
+                        self.last_error = f"HF chat {model.split('/')[-1]}: unparseable"
+                    elif r.status_code == 429:
+                        self.last_error = f"HF chat {model.split('/')[-1]}: 429 rate limited"
                         logger.warning(self.last_error)
+                    else:
+                        # Skip "not a chat model" quickly
+                        msg = self._hf_error_message(r)
+                        self.last_error = f"HF chat {model.split('/')[-1]} ({r.status_code}): {msg}"
+                        logger.warning(self.last_error)
+                        if "not a chat model" in msg.lower():
+                            break  # try next model, don't spam other URLs
                 except requests.exceptions.RequestException:
-                    self.last_error = f"HF {model.split('/')[-1]} connection timeout"
-                    logger.warning(f"HF connection timeout on {model}")
+                    self.last_error = f"HF chat {model.split('/')[-1]}: timeout/connection"
+                    logger.warning(self.last_error)
                 except Exception as e:
-                    self.last_error = f"HF {model.split('/')[-1]}: {e}"
+                    self.last_error = f"HF chat {model.split('/')[-1]}: {e}"
+
+        # 2) Text-generation for instruct models (including Mistral)
+        for model in HF_TEXT_MODELS + HF_CHAT_MODELS:
+            try:
+                logger.info(f"HF text-gen → {model}")
+                # Prefer router text generation if available; classic inference as backup
+                urls = [
+                    f"https://api-inference.huggingface.co/models/{model}",
+                    f"https://router.huggingface.co/hf-inference/models/{model}",
+                ]
+                body = {
+                    "inputs": (
+                        "Return VALID JSON only.\n\n" + prompt
+                    ),
+                    "parameters": {
+                        "max_new_tokens": HF_MAX_TOKENS,
+                        "temperature": 0.6,
+                        "return_full_text": False,
+                    },
+                    "options": {"wait_for_model": True},
+                }
+                for url in urls:
+                    try:
+                        r = requests.post(url, headers=headers, json=body, timeout=HTTP_TIMEOUT)
+                    except requests.exceptions.RequestException:
+                        continue
+
+                    if r.status_code == 200:
+                        data = r.json()
+                        if isinstance(data, list) and data:
+                            content = data[0].get("generated_text", "")
+                        elif isinstance(data, dict):
+                            content = data.get("generated_text") or data.get("summary_text") or str(data)
+                        else:
+                            content = str(data)
+                        qs = self._parse_response(content)
+                        if qs:
+                            self.last_provider = f"hf-text:{model}"
+                            logger.info(f"✅ HF text {model}: {len(qs)} Qs")
+                            return qs
+                        self.last_error = f"HF text {model.split('/')[-1]}: unparseable"
+                    elif r.status_code == 429:
+                        self.last_error = f"HF text {model.split('/')[-1]}: 429 rate limited"
+                    else:
+                        self.last_error = (
+                            f"HF text {model.split('/')[-1]} ({r.status_code}): "
+                            f"{self._hf_error_message(r)}"
+                        )
+                        logger.warning(self.last_error)
+            except Exception as e:
+                self.last_error = f"HF text {model.split('/')[-1]}: {e}"
 
         return []
 
-    def _build_prompt(
-        self, text: str, num_questions: int, batch_index: int, total_batches: int
-    ) -> str:
+    def _build_prompt(self, text: str, num_questions: int, batch_index: int, total_batches: int) -> str:
         extra = ""
         if total_batches > 1:
             extra = (
@@ -341,7 +380,6 @@ STUDY MATERIAL:
         content = (content or "").strip()
         if not content:
             return []
-
         m = re.search(r"```(?:json)?\s*(.*?)```", content, re.I | re.S)
         if m:
             content = m.group(1).strip()
@@ -351,28 +389,23 @@ STUDY MATERIAL:
             data = json.loads(content)
         except json.JSONDecodeError:
             m2 = re.search(r"\{.*\}", content, re.S)
-            if m2:
-                blob = m2.group(0)
-                try:
-                    data = json.loads(blob)
-                except json.JSONDecodeError:
-                    repaired = blob
-                    if repaired.count("[") > repaired.count("]"):
-                        repaired += "]"
-                    if repaired.count("{") > repaired.count("}"):
-                        repaired += "}"
-                    try:
-                        data = json.loads(repaired)
-                    except json.JSONDecodeError:
-                        return self._parse_loose_objects(content)
-            else:
+            if not m2:
                 return self._parse_loose_objects(content)
+            blob = m2.group(0)
+            try:
+                data = json.loads(blob)
+            except json.JSONDecodeError:
+                repaired = blob
+                if repaired.count("[") > repaired.count("]"):
+                    repaired += "]"
+                if repaired.count("{") > repaired.count("}"):
+                    repaired += "}"
+                try:
+                    data = json.loads(repaired)
+                except json.JSONDecodeError:
+                    return self._parse_loose_objects(content)
 
-        raw = (
-            data.get("questions", [])
-            if isinstance(data, dict)
-            else (data if isinstance(data, list) else [])
-        )
+        raw = data.get("questions", []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
         return self._normalize_items(raw)
 
     def _parse_loose_objects(self, content: str) -> List[dict]:
@@ -415,9 +448,6 @@ STUDY MATERIAL:
         return out
 
 
-# ============================================================
-# MANAGER
-# ============================================================
 class ExamGenerationManager:
     @staticmethod
     def get_quota_status() -> dict:
@@ -432,11 +462,11 @@ class ExamGenerationManager:
         return f"qg:review:{review_id}"
 
     @classmethod
-    def _progress(cls, collected: int, target: int, batch_index: int, total_batches: int) -> int:
+    def _progress(cls, collected, target, batch_index, total_batches) -> int:
         if target <= 0:
             return 0
         by_count = (collected / target) * 100.0
-        by_batch = ((batch_index) / max(total_batches, 1)) * 100.0
+        by_batch = (batch_index / max(total_batches, 1)) * 100.0
         p = max(by_count, by_batch * 0.9)
         return int(min(99, max(1, p))) if collected < target else 100
 
@@ -453,8 +483,6 @@ class ExamGenerationManager:
             doc_ids = payload.get("documents") or []
             if not doc_ids:
                 return 400, {"success": False, "error": "Select at least one document."}
-
-            status = cls.get_quota_status()
 
             batches, rem = [], count
             while rem > 0:
@@ -483,7 +511,6 @@ class ExamGenerationManager:
                 "text_by_page": text_by_page,
                 "source_map": source_map,
                 "document_ids": [str(d) for d in doc_ids],
-                "status_message": "Starting…",
             }
             cache.set(cls._task_key(task_id), state, timeout=TASK_TIMEOUT)
             request.session["gen_task_id"] = task_id
@@ -496,11 +523,11 @@ class ExamGenerationManager:
                     "total_questions": count,
                     "total_batches": len(batches),
                     "batch_size": BATCH_LIMIT,
-                    "estimated_minutes": round(len(batches) * 0.3, 1),
+                    "estimated_minutes": round(len(batches) * 0.35, 1),
                 },
                 "progress": 1,
                 "message": f"Plan ready: {count} questions in {len(batches)} batches",
-                "quota": status,
+                "quota": cls.get_quota_status(),
             }
         except Exception as e:
             logger.exception("start_generation failed")
@@ -543,15 +570,7 @@ class ExamGenerationManager:
                     "quota": status,
                 }
 
-            still_needed = target - len(collected)
-            batch_size = min(BATCH_LIMIT, still_needed)
-
-            state["status_message"] = (
-                f"Generating batch {batch_index + 1}/{total_batches} "
-                f"({batch_size} questions)…"
-            )
-            cache.set(cls._task_key(task_id), state, timeout=TASK_TIMEOUT)
-
+            batch_size = min(BATCH_LIMIT, target - len(collected))
             gen = QuestionGenerator()
             new_qs = gen.generate(
                 state["text_by_page"],
@@ -563,18 +582,11 @@ class ExamGenerationManager:
             if not new_qs:
                 state["fail_streak"] = int(state.get("fail_streak", 0)) + 1
                 cache.set(cls._task_key(task_id), state, timeout=TASK_TIMEOUT)
-
                 err = gen.last_error or "AI returned no questions"
-                is_rate = any(
-                    x in err
-                    for x in ("429", "RATE LIMITED", "RESOURCE_EXHAUSTED", "quota")
-                )
+                is_rate = any(x in err for x in ("429", "RATE LIMITED", "RESOURCE_EXHAUSTED", "rate limited"))
 
                 if state["fail_streak"] >= MAX_FAIL_STREAK and not is_rate:
                     if len(collected) >= MIN_QUESTIONS:
-                        logger.warning(
-                            f"Delivering partial {len(collected)}/{target} after failures: {err}"
-                        )
                         return 200, cls._finish_generation(request, state)
                     return 400, {
                         "success": False,
@@ -583,20 +595,14 @@ class ExamGenerationManager:
                         "progress": prog,
                         "total_so_far": len(collected),
                         "total_questions": target,
-                        "batch_index": batch_index,
-                        "total_batches": total_batches,
                         "quota": cls.get_quota_status(),
                     }
 
-                retry_after = RATE_LIMIT_BACKOFF if is_rate else 3
                 return (429 if is_rate else 503), {
                     "success": False,
                     "retryable": True,
-                    "retry_after": retry_after,
-                    "error": (
-                        f"{'Rate limited' if is_rate else 'Retrying batch'} "
-                        f"({state['fail_streak']}/{MAX_FAIL_STREAK}): {err[:160]}"
-                    ),
+                    "retry_after": RATE_LIMIT_BACKOFF if is_rate else 3,
+                    "error": f"{'Rate limited' if is_rate else 'Retrying batch'} ({state['fail_streak']}/{MAX_FAIL_STREAK}): {err[:180]}",
                     "progress": prog,
                     "total_so_far": len(collected),
                     "total_questions": target,
@@ -610,16 +616,9 @@ class ExamGenerationManager:
             state["collected"] = collected
             state["batch_index"] = batch_index + 1
             state["fail_streak"] = 0
-            state["status_message"] = (
-                f"Batch {batch_index + 1}/{total_batches} done — "
-                f"{len(collected)}/{target} questions"
-            )
             cache.set(cls._task_key(task_id), state, timeout=TASK_TIMEOUT)
 
-            prog = cls._progress(
-                len(collected), target, state["batch_index"], total_batches
-            )
-
+            prog = cls._progress(len(collected), target, state["batch_index"], total_batches)
             if len(collected) >= target:
                 return 200, cls._finish_generation(request, state)
 
@@ -631,7 +630,7 @@ class ExamGenerationManager:
                 "progress": prog,
                 "total_so_far": len(collected),
                 "total_questions": target,
-                "message": state["status_message"],
+                "message": f"Batch {batch_index + 1}/{total_batches} done — {len(collected)}/{target}",
                 "provider": gen.last_provider,
                 "quota": cls.get_quota_status(),
             }
@@ -643,9 +642,7 @@ class ExamGenerationManager:
     def _extract_text(cls, request, payload: dict) -> Tuple[Dict[int, str], Dict[str, dict]]:
         doc_ids = payload.get("documents") or []
         documents = list(
-            Document.objects.filter(
-                id__in=doc_ids, uploaded_by=request.user, status="ready"
-            )
+            Document.objects.filter(id__in=doc_ids, uploaded_by=request.user, status="ready")
         )
         if not documents:
             raise ValueError("No valid documents selected.")
@@ -657,33 +654,23 @@ class ExamGenerationManager:
         for document in documents:
             if str(document.file_type).lower() != "pdf":
                 continue
-
             try:
                 path = document.file.path
             except Exception:
                 raise ValueError(f"Document '{document.title}' path inaccessible.")
-
             if not os.path.exists(path):
-                raise ValueError(
-                    f"File '{document.title}' missing on server. Please re-upload it."
-                )
+                raise ValueError(f"File '{document.title}' missing on server. Please re-upload it.")
 
             if source_type == "entire":
                 pages = None
             elif source_type == "range":
                 pages = PDFService.get_pages_for_range(
-                    path,
-                    int(payload.get("page_from") or 1),
-                    int(payload.get("page_to") or 1),
+                    path, int(payload.get("page_from") or 1), int(payload.get("page_to") or 1)
                 )
             elif source_type == "specific":
-                pages = PDFService.parse_specific_pages(
-                    str(payload.get("specific_pages", ""))
-                )
+                pages = PDFService.parse_specific_pages(str(payload.get("specific_pages", "")))
             elif source_type == "random":
-                pages = PDFService.get_random_pages(
-                    path, int(payload.get("random_page_count") or 5)
-                )
+                pages = PDFService.get_random_pages(path, int(payload.get("random_page_count") or 5))
             else:
                 pages = None
 
@@ -691,13 +678,8 @@ class ExamGenerationManager:
             for orig_page, page_text in extracted.items():
                 if not str(page_text).strip():
                     continue
-                text_by_page[ref] = (
-                    f"[Document: {document.title}; page: {orig_page}]\n{page_text}"
-                )
-                source_map[str(ref)] = {
-                    "document_id": str(document.id),
-                    "page": int(orig_page),
-                }
+                text_by_page[ref] = f"[Document: {document.title}; page: {orig_page}]\n{page_text}"
+                source_map[str(ref)] = {"document_id": str(document.id), "page": int(orig_page)}
                 ref += 1
 
         return text_by_page, source_map
@@ -708,7 +690,6 @@ class ExamGenerationManager:
         questions = state["collected"][:target]
         source_map = state.get("source_map", {})
         first = next(iter(source_map.values()), None)
-
         for q in questions:
             key = str(q.get("source_page", ""))
             src = source_map.get(key) or first
@@ -722,12 +703,10 @@ class ExamGenerationManager:
             {"questions": questions, "document_ids": state.get("document_ids", [])},
             timeout=REVIEW_TIMEOUT,
         )
-
         request.session["review_task_id"] = review_id
         request.session["generated_questions"] = questions
         request.session["generation_doc_ids"] = state.get("document_ids", [])
         request.session.modified = True
-
         cache.delete(cls._task_key(state["task_id"]))
         request.session.pop("gen_task_id", None)
 
@@ -759,11 +738,6 @@ class ExamGenerationManager:
         rid = request.session.get("review_task_id")
         if rid:
             cache.delete(cls._review_key(rid))
-        for k in (
-            "review_task_id",
-            "generated_questions",
-            "generation_doc_ids",
-            "gen_task_id",
-        ):
+        for k in ("review_task_id", "generated_questions", "generation_doc_ids", "gen_task_id"):
             request.session.pop(k, None)
         request.session.modified = True
