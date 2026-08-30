@@ -3,248 +3,265 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Exams - PDF to Exam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="theme-color" content="#0b0d17">
+    <title>My Exams - Examgen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/design-system.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
-
-        /* Navbar */
-        .navbar { background: rgba(20,20,35,0.95); border-bottom: 1px solid rgba(255,255,255,0.08);
-                  padding: 0 30px; height: 60px; display: flex; align-items: center;
-                  justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-        .navbar-brand { color: #fff; font-size: 1.2rem; font-weight: 700; text-decoration: none; }
-        .navbar-brand span { color: #f093fb; }
-        .nav-links { display: flex; gap: 8px; align-items: center; }
-        .user-badge { color: #f093fb; padding: 6px 14px; background: rgba(240,147,251,0.1);
-                       border-radius: 20px; font-size: 0.85rem; }
-        .nav-link { color: #b8b8d4; text-decoration: none; padding: 8px 16px;
-                    border-radius: 8px; font-size: 0.9rem; transition: all 0.2s; }
-        .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
-        .nav-link.logout { color: #ff6b6b; }
-
-        .main { padding: 30px; max-width: 1200px; margin: 0 auto; }
-
-        /* Welcome */
-        .welcome {
-            background: linear-gradient(135deg, rgba(240,147,251,0.15), rgba(245,87,108,0.1));
-            border: 1px solid rgba(240,147,251,0.2);
-            border-radius: 16px; padding: 24px 28px; margin-bottom: 25px;
+        .user-welcome {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-8);
+            margin-bottom: var(--space-6);
         }
-        .welcome h1 { color: #fff; font-size: 1.6rem; margin-bottom: 6px; }
-        .welcome p { color: #b8b8d4; font-size: 0.92rem; }
+        .user-welcome h1 { font-size: var(--text-2xl); margin-bottom: var(--space-1); }
+        .user-welcome p { color: var(--text-secondary); }
 
-        /* Search */
-        .search-box { position: relative; margin-bottom: 22px; max-width: 400px; }
-        .search-box input {
-            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 10px; padding: 10px 16px 10px 40px; color: #fff; font-size: 0.9rem;
-            width: 100%; outline: none; font-family: inherit;
+        .search-wrap {
+            max-width: 400px;
+            margin-bottom: var(--space-6);
+            position: relative;
         }
-        .search-box input::placeholder { color: #666; }
-        .search-box input:focus { border-color: #f093fb; }
-        .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-                       color: #666; }
+        .search-wrap::before {
+            content: '🔍';
+            position: absolute;
+            left: var(--space-4);
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: var(--text-sm);
+        }
+        .search-wrap input {
+            padding-left: calc(var(--space-4) + 24px);
+        }
 
-        /* Exam Grid */
         .exam-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 18px;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: var(--space-5);
         }
+
         .exam-card {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 14px; padding: 22px;
-            transition: all 0.2s; position: relative;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-6);
+            transition: all var(--transition-base);
+            display: flex;
+            flex-direction: column;
         }
-        .exam-card:hover { background: rgba(255,255,255,0.06); transform: translateY(-2px); }
-
-        .exam-card h3 { color: #fff; font-size: 1.15rem; margin-bottom: 10px; }
-        .exam-desc { color: #9999b8; font-size: 0.85rem; margin-bottom: 14px;
-                      line-height: 1.5; min-height: 40px; }
-
-        .exam-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-        .meta-pill {
-            background: rgba(255,255,255,0.05); color: #b8b8d4;
-            padding: 4px 12px; border-radius: 20px; font-size: 0.75rem;
+        .exam-card:hover {
+            border-color: var(--border-medium);
+            transform: translateY(-2px);
         }
-        .meta-pill strong { color: #fff; }
+        .exam-card h3 { font-size: var(--text-lg); margin-bottom: var(--space-2); }
+        .exam-desc {
+            color: var(--text-secondary);
+            font-size: var(--text-sm);
+            margin-bottom: var(--space-4);
+            line-height: 1.5;
+            min-height: 40px;
+        }
 
-        /* Attempt Info */
+        .exam-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2);
+            margin-bottom: var(--space-4);
+        }
+
         .attempt-info {
-            padding: 12px 14px; border-radius: 8px; margin-bottom: 14px;
-            font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center;
+            padding: var(--space-3) var(--space-4);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-4);
+            font-size: var(--text-sm);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .attempt-info.can-attempt {
-            background: rgba(46,213,115,0.08); border-left: 3px solid #2ed573; color: #2ed573;
+            background: var(--accent-success-soft);
+            border-left: 3px solid var(--accent-success);
+            color: var(--accent-success);
         }
         .attempt-info.max-reached {
-            background: rgba(255,71,87,0.08); border-left: 3px solid #ff4757; color: #ff4757;
+            background: var(--accent-danger-soft);
+            border-left: 3px solid var(--accent-danger);
+            color: var(--accent-danger);
         }
         .attempt-info.no-attempts {
-            background: rgba(102,126,234,0.08); border-left: 3px solid #667eea; color: #b8b8d4;
+            background: var(--accent-info-soft);
+            border-left: 3px solid var(--accent-info);
+            color: var(--text-secondary);
         }
 
-        /* Last Score */
         .last-score {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 8px 12px; background: rgba(255,255,255,0.03);
-            border-radius: 8px; margin-bottom: 12px; font-size: 0.82rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-input);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-3);
+            font-size: var(--text-sm);
         }
-        .badge {
-            display: inline-block; padding: 3px 10px; border-radius: 20px;
-            font-size: 0.72rem; font-weight: 600;
+
+        .badge-pass {
+            background: var(--accent-success-soft);
+            color: var(--accent-success);
+            padding: var(--space-1) var(--space-3);
+            border-radius: var(--radius-full);
+            font-size: var(--text-xs);
+            font-weight: 600;
         }
-        .badge-pass { background: rgba(46,213,115,0.15); color: #2ed573; }
-        .badge-fail { background: rgba(255,71,87,0.15); color: #ff4757; }
-
-        /* Buttons */
-        .btn { padding: 10px 20px; border: none; border-radius: 10px; font-size: 0.9rem;
-               font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block;
-               font-family: inherit; text-align: center; width: 100%; transition: opacity 0.2s; }
-        .btn-primary { background: linear-gradient(135deg, #f093fb, #f5576c); color: #fff; }
-        .btn-primary:hover { opacity: 0.9; }
-        .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #b8b8d4; }
-        .btn-outline:hover { border-color: #f093fb; color: #f093fb; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        /* Empty */
-        .empty-state { text-align: center; padding: 80px 20px; color: #9999b8; }
-        .empty-state .icon { font-size: 4rem; margin-bottom: 16px; }
-        .empty-state h3 { color: #ccc; font-size: 1.3rem; margin-bottom: 10px; }
-        .empty-state p { font-size: 0.9rem; }
+        .badge-fail {
+            background: var(--accent-danger-soft);
+            color: var(--accent-danger);
+            padding: var(--space-1) var(--space-3);
+            border-radius: var(--radius-full);
+            font-size: var(--text-xs);
+            font-weight: 600;
+        }
 
         @media (max-width: 768px) {
-            .navbar { padding: 0 16px; }
-            .nav-link { padding: 6px 10px; font-size: 0.82rem; }
-            .user-badge { display: none; }
-            .main { padding: 16px; }
             .exam-grid { grid-template-columns: 1fr; }
-            .welcome { padding: 18px; }
-            .welcome h1 { font-size: 1.3rem; }
+            .user-welcome { padding: var(--space-5); }
+            .user-welcome h1 { font-size: var(--text-xl); }
+        }
+
+        @media (max-width: 480px) {
+            .exam-meta { gap: var(--space-1); }
         }
     </style>
 </head>
 <body>
-
-<!-- Navbar -->
-<nav class="navbar">
-    <a class="navbar-brand" href="{% url 'designer:home' %}"><span>PDF</span>toExam</a>
-    <div class="nav-links">
-        <span class="user-badge">👤 {{ request.user.get_full_name|default:request.user.username }}</span>
-        <a href="{% url 'designer:logout' %}" class="nav-link logout">Logout</a>
-    </div>
-</nav>
-
-<div class="main">
-
-    <!-- Welcome -->
-    <div class="welcome">
-        <h1>👋 Welcome back, {{ request.user.first_name|default:request.user.username }}!</h1>
-        <p>Here are the exams available for you.</p>
-    </div>
-
-    <!-- Search -->
-    <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="searchInput" placeholder="Search exams..." oninput="searchExams(this.value)">
-    </div>
-
-    <!-- Exam Grid -->
-    {% if exam_data %}
-    <div class="exam-grid" id="examGrid">
-        {% for item in exam_data %}
-        <div class="exam-card" data-title="{{ item.exam.name|lower }}">
-
-            <h3>{{ item.exam.name }}</h3>
-
-            <div class="exam-desc">
-                {% if item.exam.description %}
-                    {{ item.exam.description|truncatewords:20 }}
-                {% else %}
-                    <em style="color:#666;">No description provided.</em>
-                {% endif %}
-            </div>
-
-            <!-- Meta Info -->
-            <div class="exam-meta">
-                <span class="meta-pill">⏱ <strong>{{ item.exam.duration_minutes }}</strong> min</span>
-                <span class="meta-pill">❓ <strong>{{ item.exam.question_count }}</strong> Qs</span>
-                <span class="meta-pill">🎯 <strong>{{ item.exam.pass_mark }}%</strong> to pass</span>
-            </div>
-
-            <!-- Last Score -->
-            {% if item.last_attempt %}
-            <div class="last-score">
-                <span>Last Score: <strong style="color:#fff;">{{ item.last_attempt.percentage }}%</strong></span>
-                {% if item.last_attempt.passed %}
-                    <span class="badge badge-pass">✓ Passed</span>
-                {% else %}
-                    <span class="badge badge-fail">✗ Failed</span>
-                {% endif %}
-            </div>
-            {% endif %}
-
-            <!-- Attempt Info -->
-            {% if item.can_attempt %}
-                {% if item.attempt_count == 0 %}
-                <div class="attempt-info no-attempts">
-                    <span>🆕 Not attempted yet</span>
-                    <span>{{ item.exam.max_attempts }} attempt{{ item.exam.max_attempts|pluralize }} allowed</span>
-                </div>
-                {% else %}
-                <div class="attempt-info can-attempt">
-                    <span>✓ {{ item.attempt_count }} of {{ item.exam.max_attempts }} used</span>
-                    <span>{{ item.exam.max_attempts|add:"-"|add:item.attempt_count }} left</span>
-                </div>
-                {% endif %}
-            {% else %}
-            <div class="attempt-info max-reached">
-                <span>⚠ Max attempts reached</span>
-                <span>{{ item.attempt_count }}/{{ item.exam.max_attempts }}</span>
-            </div>
-            {% endif %}
-
-            <!-- Action Button -->
-            {% if item.can_attempt %}
-                <a href="{% url 'designer:start_exam' item.exam.id %}" class="btn btn-primary">
-                    {% if item.attempt_count == 0 %}
-                        🚀 Start Exam
-                    {% else %}
-                        🔄 Retake Exam
-                    {% endif %}
-                </a>
-            {% elif item.last_attempt %}
-                <a href="{% url 'designer:exam_result' item.last_attempt.id %}" class="btn btn-outline">
-                    📊 View Result
-                </a>
-            {% else %}
-                <button class="btn btn-outline" disabled>No attempts remaining</button>
-            {% endif %}
-
+    <!-- Navbar -->
+    <nav class="navbar">
+        <a href="{% url 'designer:home' %}" class="navbar-brand">
+            <div class="logo-mark"></div>
+            Exam<span>gen</span>
+        </a>
+        <button class="nav-toggle" onclick="this.classList.toggle('active'); document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu"><span></span><span></span><span></span></button>
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-links">
+            <span class="badge badge-info">👤 {{ request.user.get_full_name|default:request.user.username }}</span>
+            <a href="{% url 'designer:logout' %}" class="nav-link logout">Logout</a>
         </div>
-        {% endfor %}
+    </nav>
+
+    <div class="main-content">
+        <!-- Welcome -->
+        <div class="user-welcome">
+            <h1>👋 Welcome back, {{ request.user.first_name|default:request.user.username }}!</h1>
+            <p>Here are the exams available for you.</p>
+        </div>
+
+        <!-- Search -->
+        <div class="search-wrap">
+            <input type="text" class="form-control" id="searchInput" placeholder="Search exams..." oninput="searchExams(this.value)">
+        </div>
+
+        <!-- Exam Grid -->
+        {% if exam_data %}
+        <div class="exam-grid" id="examGrid">
+            {% for item in exam_data %}
+            <div class="exam-card" data-title="{{ item.exam.name|lower }}">
+                <h3>{{ item.exam.name }}</h3>
+
+                <div class="exam-desc">
+                    {% if item.exam.description %}
+                        {{ item.exam.description|truncatewords:20 }}
+                    {% else %}
+                        <em style="color: var(--text-tertiary);">No description provided.</em>
+                    {% endif %}
+                </div>
+
+                <!-- Meta Info -->
+                <div class="exam-meta">
+                    <span class="badge badge-info">⏱ {{ item.exam.duration_minutes }} min</span>
+                    <span class="badge badge-info">❓ {{ item.exam.question_count }} Qs</span>
+                    <span class="badge badge-info">🎯 {{ item.exam.pass_mark }}%</span>
+                </div>
+
+                <!-- Last Score -->
+                {% if item.last_attempt %}
+                <div class="last-score">
+                    <span>Last: <strong>{{ item.last_attempt.percentage }}%</strong></span>
+                    {% if item.last_attempt.passed %}
+                        <span class="badge-pass">✓ Passed</span>
+                    {% else %}
+                        <span class="badge-fail">✗ Failed</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <!-- Attempt Info -->
+                {% if item.can_attempt %}
+                    {% if item.attempt_count == 0 %}
+                    <div class="attempt-info no-attempts">
+                        <span>🆕 Not attempted yet</span>
+                        <span>{{ item.exam.max_attempts }} allowed</span>
+                    </div>
+                    {% else %}
+                    <div class="attempt-info can-attempt">
+                        <span>✓ {{ item.attempt_count }}/{{ item.exam.max_attempts }} used</span>
+                        <span>{{ item.exam.max_attempts|add:"-item.attempt_count" }} left</span>
+                    </div>
+                    {% endif %}
+                {% else %}
+                <div class="attempt-info max-reached">
+                    <span>⚠ Max attempts reached</span>
+                    <span>{{ item.attempt_count }}/{{ item.exam.max_attempts }}</span>
+                </div>
+                {% endif %}
+
+                <!-- Action Button -->
+                {% if item.can_attempt %}
+                    <a href="{% url 'designer:start_exam' item.exam.id %}" class="btn btn-primary btn-full">
+                        {% if item.attempt_count == 0 %}
+                            🚀 Start Exam
+                        {% else %}
+                            🔄 Retake Exam
+                        {% endif %}
+                    </a>
+                {% elif item.last_attempt %}
+                    <a href="{% url 'designer:exam_result' item.last_attempt.id %}" class="btn btn-outline btn-full">
+                        📊 View Result
+                    </a>
+                {% else %}
+                    <button class="btn btn-outline btn-full" disabled>No attempts remaining</button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📚</div>
+            <h3 class="empty-title">No Exams Available</h3>
+            <p class="empty-text">You have no exams assigned to you yet.<br>Check back later or contact your administrator.</p>
+        </div>
+        {% endif %}
     </div>
 
-    {% else %}
-    <div class="empty-state">
-        <div class="icon">📚</div>
-        <h3>No Exams Available</h3>
-        <p>You have no exams assigned to you yet.<br>Check back later or contact your administrator.</p>
-    </div>
-    {% endif %}
-
-</div>
-
-<script>
-    function searchExams(query) {
-        const q = query.toLowerCase().trim();
-        document.querySelectorAll('.exam-card').forEach(card => {
-            card.style.display = card.dataset.title.includes(q) ? '' : 'none';
+    <script>
+        function searchExams(query) {
+            const q = query.toLowerCase().trim();
+            document.querySelectorAll('.exam-card').forEach(card => {
+                card.style.display = card.dataset.title.includes(q) ? '' : 'none';
+            });
+        }
+    </script>
+    <script>
+        document.querySelectorAll('.nav-link').forEach(function(link) {
+            link.addEventListener('click', function() {
+                document.querySelector('.nav-links').classList.remove('open');
+                document.querySelector('.nav-toggle').classList.remove('active');
+            });
         });
-    }
-</script>
-
+    </script>
 </body>
 </html>

@@ -3,243 +3,253 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Login - PDF to Exam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0a0f">
+    <title>User Login - Examgen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html { -webkit-text-size-adjust: 100%; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
-            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh; min-height: 100dvh;
             display: flex; align-items: center; justify-content: center;
+            background: #0a0a0f;
             padding: 20px;
+            padding: env(safe-area-inset-top, 20px) env(safe-area-inset-right, 20px) env(safe-area-inset-bottom, 20px) env(safe-area-inset-left, 20px);
+            -webkit-font-smoothing: antialiased;
         }
+
+        /* Glassmorphism Nav */
+        .navbar {
+            position: fixed; top: 0; left: 0; right: 0; height: 60px;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px;
+            background: rgba(10, 10, 15, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            z-index: 100;
+        }
+        .navbar-brand {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; color: #fff; font-weight: 700; font-size: 1.1rem;
+        }
+        .navbar-brand .brand-icon {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; font-size: 1rem;
+        }
+        .navbar-brand span {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+
+        /* Background */
+        .bg-mesh {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background: radial-gradient(ellipse at 70% 30%, rgba(240,147,251,0.12) 0%, transparent 50%),
+                        radial-gradient(ellipse at 30% 70%, rgba(245,87,108,0.10) 0%, transparent 50%);
+        }
+        .orb {
+            position: fixed; border-radius: 50%; filter: blur(80px);
+            z-index: 0; pointer-events: none;
+        }
+        .orb-1 {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(240, 147, 251, 0.25), transparent 70%);
+            top: -80px; right: -80px;
+            animation: orbFloat1 18s ease-in-out infinite;
+        }
+        .orb-2 {
+            width: 250px; height: 250px;
+            background: radial-gradient(circle, rgba(245, 87, 108, 0.2), transparent 70%);
+            bottom: -60px; left: -60px;
+            animation: orbFloat2 22s ease-in-out infinite;
+        }
+        @keyframes orbFloat1 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-30px, 20px); } }
+        @keyframes orbFloat2 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(25px, -30px); } }
 
         .login-container {
-            background: rgba(255,255,255,0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
             border-radius: 20px;
-            padding: 40px 35px;
-            max-width: 420px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            padding: 32px 24px;
+            max-width: 400px; width: 100%;
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            position: relative; z-index: 1;
+            animation: cardFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
         }
 
-        .login-header { text-align: center; margin-bottom: 30px; }
+        @keyframes cardFadeIn {
+            from { opacity: 0; transform: translateY(16px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .login-header { text-align: center; margin-bottom: 28px; }
         .login-icon {
-            width: 70px; height: 70px; margin: 0 auto 16px;
+            width: 60px; height: 60px; margin: 0 auto 14px;
             background: linear-gradient(135deg, #f093fb, #f5576c);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 2rem;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 1.8rem; box-shadow: 0 12px 32px rgba(240,147,251,0.3);
         }
-        .login-header h2 { color: #fff; font-size: 1.6rem; margin-bottom: 6px; }
-        .login-header p { color: #b8b8d4; font-size: 0.9rem; }
+        .login-header h2 {
+            font-size: 1.5rem; font-weight: 800; margin-bottom: 4px;
+            background: linear-gradient(90deg, #f093fb, #f5576c);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        .login-header p { color: rgba(255,255,255,0.5); font-size: 0.85rem; }
 
-        .form-group { margin-bottom: 18px; }
-        .form-group label {
-            display: block; margin-bottom: 6px;
-            color: #b8b8d4; font-size: 0.85rem; font-weight: 600;
-        }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; color: rgba(255,255,255,0.6); font-size: 0.82rem; margin-bottom: 6px; font-weight: 500; }
         .form-group input {
-            width: 100%;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 10px;
-            padding: 12px 16px;
-            color: #fff;
-            font-size: 0.95rem;
-            outline: none;
-            font-family: inherit;
-            transition: border-color 0.2s;
+            width: 100%; padding: 14px 16px; font-size: 16px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 12px; color: #fff; outline: none; font-family: inherit;
+            transition: border-color 0.2s, box-shadow 0.2s; -webkit-appearance: none;
         }
-        .form-group input:focus { border-color: #f093fb; }
-        .form-group input::placeholder { color: #666; }
+        .form-group input:focus { border-color: #f093fb; box-shadow: 0 0 0 3px rgba(240,147,251,0.15); }
+        .form-group input::placeholder { color: rgba(255,255,255,0.3); }
 
-        .form-options {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 22px; font-size: 0.85rem;
-        }
-        .remember-me { display: flex; align-items: center; gap: 6px; color: #b8b8d4; }
-        .remember-me input { width: auto; }
+        .form-options { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 0.82rem; flex-wrap: wrap; gap: 8px; }
+        .remember-me { display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.6); cursor: pointer; }
+        .remember-me input { accent-color: #f093fb; width: 16px; height: 16px; }
         .forgot-link { color: #f093fb; text-decoration: none; }
-        .forgot-link:hover { text-decoration: underline; }
 
         .btn-login {
-            width: 100%;
-            padding: 13px;
-            background: linear-gradient(135deg, #f093fb, #f5576c);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-size: 0.95rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: opacity 0.2s;
-            font-family: inherit;
-            box-shadow: 0 8px 20px rgba(240,147,251,0.3);
+            width: 100%; padding: 15px; font-size: 1rem; font-weight: 700;
+            background: linear-gradient(135deg, #f093fb, #f5576c); color: #fff;
+            border: none; border-radius: 12px; cursor: pointer; font-family: inherit;
+            box-shadow: 0 8px 24px rgba(240,147,251,0.3); transition: opacity 0.2s, transform 0.15s;
+            min-height: 50px;
         }
+        .btn-login:active { transform: scale(0.98); }
         .btn-login:hover { opacity: 0.9; }
-        .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+        .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-login span { position: relative; z-index: 1; }
 
-        .signup-link {
-            text-align: center;
-            margin-top: 20px;
-            color: #b8b8d4;
-            font-size: 0.9rem;
-        }
+        .signup-link { text-align: center; margin-top: 20px; color: rgba(255,255,255,0.5); font-size: 0.85rem; }
         .signup-link a { color: #f093fb; text-decoration: none; font-weight: 600; }
-        .signup-link a:hover { text-decoration: underline; }
 
-        .back-link {
-            display: inline-block;
-            margin-top: 20px;
-            color: #666;
-            font-size: 0.85rem;
-            text-decoration: none;
-        }
-        .back-link:hover { color: #b8b8d4; }
-
-        .error-msg {
-            background: rgba(255,71,87,0.15);
-            border: 1px solid rgba(255,71,87,0.3);
-            color: #ff4757;
-            padding: 12px 16px;
-            border-radius: 10px;
-            font-size: 0.85rem;
-            margin-bottom: 18px;
-            text-align: center;
-        }
-
-        .divider {
-            display: flex; align-items: center;
-            margin: 20px 0;
-            color: #666; font-size: 0.75rem;
-        }
-        .divider::before, .divider::after {
-            content: ''; flex: 1;
-            border-top: 1px solid rgba(255,255,255,0.08);
-        }
+        .divider { display: flex; align-items: center; margin: 20px 0; color: rgba(255,255,255,0.3); font-size: 0.72rem; letter-spacing: 1px; }
+        .divider::before, .divider::after { content: ''; flex: 1; border-top: 1px solid rgba(255,255,255,0.08); }
         .divider span { padding: 0 12px; }
 
         .btn-admin {
-            width: 100%;
-            padding: 11px;
-            background: transparent;
-            border: 1px solid rgba(102,126,234,0.4);
-            color: #667eea;
-            border-radius: 10px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            text-align: center;
-            display: block;
-            transition: all 0.2s;
-            font-family: inherit;
+            width: 100%; padding: 13px; background: transparent;
+            border: 1px solid rgba(102,126,234,0.3); color: #667eea;
+            border-radius: 12px; font-size: 0.85rem; font-weight: 600;
+            cursor: pointer; text-decoration: none; text-align: center; display: block;
+            transition: all 0.2s; font-family: inherit; min-height: 44px; line-height: 1.5;
         }
-        .btn-admin:hover { background: rgba(102,126,234,0.1); }
+        .btn-admin:hover { background: rgba(102,126,234,0.08); border-color: rgba(102,126,234,0.5); }
+
+        .back-link { display: block; text-align: center; margin-top: 16px; color: rgba(255,255,255,0.4); text-decoration: none; font-size: 0.82rem; }
+        .back-link:hover { color: #f093fb; }
+
+        .error-msg {
+            background: rgba(255,71,87,0.12); border: 1px solid rgba(255,71,87,0.25);
+            color: #ff6b7a; padding: 12px 16px; border-radius: 10px;
+            margin-bottom: 16px; font-size: 0.85rem; text-align: center;
+        }
+
+        /* Transition overlay */
+        .transition-overlay {
+            position: fixed; inset: 0; background: #0a0a0f;
+            z-index: 9999; pointer-events: none;
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        .transition-overlay.active { opacity: 1; pointer-events: all; }
+
+        @media (min-width: 769px) {
+            .navbar { padding: 0 40px; height: 64px; }
+            .navbar-brand { font-size: 1.2rem; }
+            .navbar-brand .brand-icon { width: 36px; height: 36px; font-size: 1.1rem; }
+            body { padding: 40px; }
+            .login-container { padding: 40px 36px; border-radius: 24px; }
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
     </style>
 </head>
 <body>
+    <!-- Glassmorphism Nav -->
+    <nav class="navbar">
+        <a href="{% url 'designer:home' %}" class="navbar-brand" data-transition-back>
+            <div class="brand-icon"></div>
+            Exam<span>gen</span>
+        </a>
+    </nav>
 
-<div class="login-container">
-    <div class="login-header">
-        <div class="login-icon">👤</div>
-        <h2>User Login</h2>
-        <p>Sign in to take examinations</p>
-    </div>
+    <div class="bg-mesh"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
 
-    {% if error %}
-    <div class="error-msg">{{ error }}</div>
-    {% endif %}
-
-    <div id="error-container" class="error-msg" style="display:none;"></div>
-
-    <form id="login-form" method="post" action="{% url 'designer:user_login' %}">
-        {% csrf_token %}
-
-        <div class="form-group">
-            <label for="username">Username or Email</label>
-            <input type="text" id="username" name="username"
-                   placeholder="Enter username or email" required autofocus>
+    <div class="login-container">
+        <div class="login-header">
+            <div class="login-icon">👤</div>
+            <h2>User Login</h2>
+            <p>Sign in to take examinations</p>
         </div>
 
-        <div class="form-group">
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password"
-                   placeholder="Enter password" required>
-        </div>
+        {% if error %}<div class="error-msg">{{ error }}</div>{% endif %}
+        <div id="error-container" class="error-msg" style="display:none;"></div>
 
-        <div class="form-options">
-            <label class="remember-me">
-                <input type="checkbox" name="remember_me"> Remember me
-            </label>
-            <a href="#" class="forgot-link">Forgot password?</a>
-        </div>
+        <form id="login-form" method="post" action="{% url 'designer:user_login' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="username">Username or Email</label>
+                <input type="text" id="username" name="username" placeholder="Enter username or email" required autofocus autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Enter password" required autocomplete="current-password">
+            </div>
+            <div class="form-options">
+                <label class="remember-me"><input type="checkbox" name="remember_me"> Remember me</label>
+                <a href="#" class="forgot-link">Forgot password?</a>
+            </div>
+            <button type="submit" class="btn-login" id="btn-submit"><span>Sign In</span></button>
+        </form>
 
-        <button type="submit" class="btn-login" id="btn-submit">
-            Sign In
-        </button>
-    </form>
-
-    <div class="signup-link">
-        Don't have an account? <a href="{% url 'designer:signup' %}">Sign up</a>
+        <div class="signup-link">Don't have an account? <a href="{% url 'designer:signup' %}">Sign up</a></div>
+        <div class="divider"><span>OR</span></div>
+        <a href="{% url 'designer:admin_login' %}" class="btn-admin" data-transition-back>🛡️ Login as Administrator</a>
+        <a href="{% url 'designer:home' %}" class="back-link" data-transition-back>← Back to Home</a>
     </div>
 
-    <div class="divider"><span>OR</span></div>
+    <div class="transition-overlay" id="transition-overlay"></div>
 
-    <a href="{% url 'designer:admin_login' %}" class="btn-admin">
-        🛡️ Login as Administrator
-    </a>
-
-    <div style="text-align:center;">
-        <a href="{% url 'designer:home' %}" class="back-link">← Back to Home</a>
-    </div>
-</div>
-
-<script>
-    const form = document.getElementById('login-form');
-    const errorContainer = document.getElementById('error-container');
-    const btnSubmit = document.getElementById('btn-submit');
-
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        errorContainer.style.display = 'none';
-        btnSubmit.disabled = true;
-        btnSubmit.textContent = 'Signing in...';
-
-        const formData = new FormData(form);
-        const csrfToken = formData.get('csrfmiddlewaretoken');
-
-        fetch(form.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                window.location.href = data.redirect;
-            } else {
-                errorContainer.textContent = data.error || 'Login failed.';
-                errorContainer.style.display = 'block';
-                btnSubmit.disabled = false;
-                btnSubmit.textContent = 'Sign In';
-            }
-        })
-        .catch(() => {
-            errorContainer.textContent = 'Network error. Please try again.';
-            errorContainer.style.display = 'block';
-            btnSubmit.disabled = false;
-            btnSubmit.textContent = 'Sign In';
+    <script>
+        const form = document.getElementById('login-form');
+        const errorContainer = document.getElementById('error-container');
+        const btnSubmit = document.getElementById('btn-submit');
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            errorContainer.style.display = 'none';
+            btnSubmit.disabled = true;
+            btnSubmit.querySelector('span').textContent = 'Signing in...';
+            fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' }})
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) { window.location.href = data.redirect; }
+                else { errorContainer.textContent = data.error || 'Login failed.'; errorContainer.style.display = 'block'; btnSubmit.disabled = false; btnSubmit.querySelector('span').textContent = 'Sign In'; }
+            })
+            .catch(() => { errorContainer.textContent = 'Network error.'; errorContainer.style.display = 'block'; btnSubmit.disabled = false; btnSubmit.querySelector('span').textContent = 'Sign In'; });
         });
-    });
-</script>
 
+        // Smooth back transition
+        document.querySelectorAll('[data-transition-back]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('transition-overlay').classList.add('active');
+                setTimeout(function() { window.location.href = link.href; }, 300);
+            });
+        });
+    </script>
 </body>
 </html>

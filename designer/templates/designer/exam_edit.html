@@ -3,20 +3,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <title>Edit {{ exam.name }} - PDF to Exam</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0f; color: #fff; min-height: 100vh; }
 
         /* Navbar */
-        .navbar { background: rgba(20,20,35,0.95); border-bottom: 1px solid rgba(255,255,255,0.08);
+        .navbar { background: rgba(10,10,15,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.08);
                   padding: 0 30px; height: 60px; display: flex; align-items: center;
                   justify-content: space-between; position: sticky; top: 0; z-index: 100; }
         .navbar-brand { color: #fff; font-size: 1.2rem; font-weight: 700; text-decoration: none; }
         .navbar-brand span { color: #667eea; }
         .nav-links { display: flex; gap: 8px; }
-        .nav-link { color: #b8b8d4; text-decoration: none; padding: 8px 16px;
+        .nav-link { color: rgba(255,255,255,0.6); text-decoration: none; padding: 8px 16px;
                     border-radius: 8px; font-size: 0.9rem; transition: all 0.2s; }
         .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
         .nav-link.active { background: rgba(102,126,234,0.2); color: #667eea; }
@@ -31,7 +32,7 @@
         .header-actions { display: flex; gap: 8px; }
 
         /* Cards */
-        .card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+        .card { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border-radius: 16px; border: 1px solid rgba(255,255,255,0.06);
                 border-radius: 14px; padding: 22px; margin-bottom: 18px; }
         .card h2 { color: #fff; font-size: 1.15rem; margin-bottom: 14px;
                    padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -43,7 +44,7 @@
 
         /* Form Fields */
         .field { margin-bottom: 14px; }
-        .field label { display: block; margin-bottom: 6px; color: #9999b8;
+        .field label { display: block; margin-bottom: 6px; color: rgba(255,255,255,0.5);
                        font-size: 0.82rem; font-weight: 600; }
         .field input, .field select, .field textarea {
             width: 100%; background: rgba(255,255,255,0.06);
@@ -65,9 +66,9 @@
         .btn { padding: 10px 22px; border: none; border-radius: 10px; font-size: 0.88rem;
                font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block;
                font-family: inherit; transition: opacity 0.2s; }
-        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 10px 30px rgba(102,126,234,0.3); color: #fff; }
         .btn-success { background: linear-gradient(135deg, #2ed573, #17c0eb); color: #fff; }
-        .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #b8b8d4; }
+        .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); }
         .btn-sm { padding: 5px 12px; font-size: 0.75rem; border-radius: 6px; }
         .btn-danger { background: rgba(255,71,87,0.15); color: #ff4757; border: none; }
         .btn-danger:hover { background: rgba(255,71,87,0.25); }
@@ -77,7 +78,7 @@
         .btn-outline:hover { border-color: #667eea; color: #667eea; opacity: 1; }
 
         /* Question Card */
-        .question-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+        .question-card { background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border-radius: 16px; border: 1px solid rgba(255,255,255,0.07);
                          border-radius: 12px; padding: 18px; margin-bottom: 12px; }
         .q-header { display: flex; justify-content: space-between; align-items: center;
                     margin-bottom: 12px; }
@@ -87,10 +88,10 @@
         .q-text { color: #fff; font-size: 0.95rem; margin-bottom: 12px; line-height: 1.5; }
         .options { display: grid; gap: 8px; }
         .option { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
-                  background: rgba(255,255,255,0.03); border-radius: 8px;
+                  background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border-radius: 16px; border-radius: 8px;
                   border-left: 3px solid transparent; }
         .option.correct { border-left-color: #2ed573; background: rgba(46,213,115,0.08); }
-        .option-letter { font-weight: 700; color: #9999b8; min-width: 20px; }
+        .option-letter { font-weight: 700; color: rgba(255,255,255,0.5); min-width: 20px; }
         .option.correct .option-letter { color: #2ed573; }
         .option-text { flex: 1; color: #ddd; font-size: 0.88rem; }
 
@@ -126,13 +127,161 @@
             .save-bar { margin: 0 -16px -16px -16px; flex-direction: column; gap: 10px; }
             .page-header { flex-direction: column; align-items: flex-start; }
         }
-    </style>
+    
+/* ===== MOBILE OPTIMIZATION ===== */
+@media (max-width: 768px) {
+    * { -webkit-tap-highlight-color: transparent; }
+    body { -webkit-text-size-adjust: 100%; overflow-x: hidden; }
+    
+    /* Navbar mobile */
+    .navbar { padding: 0 12px !important; height: 56px !important; }
+    .navbar-brand { font-size: 1.1rem !important; }
+    .navbar-brand .logo { width: 30px !important; height: 30px !important; font-size: 1rem !important; }
+    .nav-links { gap: 4px !important; }
+    .nav-link { padding: 6px 8px !important; font-size: 0.75rem !important; }
+    .nav-link.logout { font-size: 0.7rem !important; }
+    
+    /* Main content */
+    .main { padding: 16px 12px !important; }
+    
+    /* Stats grid */
+    .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+    .stat-card { padding: 14px !important; }
+    .stat-value { font-size: 1.4rem !important; }
+    .stat-icon { font-size: 1.5rem !important; }
+    
+    /* Quick actions */
+    .quick-actions { grid-template-columns: 1fr !important; gap: 10px !important; }
+    .action-card { padding: 16px !important; }
+    .action-icon { width: 44px !important; height: 44px !important; font-size: 1.4rem !important; }
+    
+    /* Tables - horizontal scroll */
+    .table-scroll { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+    table { min-width: 500px !important; }
+    th, td { padding: 10px 12px !important; font-size: 0.8rem !important; }
+    
+    /* Cards */
+    .exam-card, .doc-card { padding: 16px !important; }
+    .exam-card h3 { font-size: 1rem !important; }
+    
+    /* Buttons - larger touch targets */
+    .btn { padding: 14px 20px !important; font-size: 0.95rem !important; min-height: 48px !important; }
+    .btn-sm { padding: 8px 14px !important; min-height: 36px !important; }
+    
+    /* Forms */
+    .form-group input, .form-group select, .form-group textarea { 
+        padding: 14px 16px !important; font-size: 16px !important; 
+        -webkit-appearance: none; border-radius: 10px !important;
+    }
+    
+    /* Upload zone */
+    .upload-zone { padding: 30px 20px !important; }
+    
+    /* Page headers */
+    .page-header h1 { font-size: 1.4rem !important; }
+    .section-title { font-size: 1.1rem !important; }
+    
+    /* Welcome banner */
+    .welcome { padding: 20px 16px !important; }
+    .welcome h1 { font-size: 1.3rem !important; }
+    
+    /* Search */
+    .search-box { max-width: 100% !important; }
+    
+    /* Exam grid */
+    .exam-grid { grid-template-columns: 1fr !important; gap: 14px !important; }
+    
+    /* Document grid */
+    .doc-grid { grid-template-columns: 1fr !important; }
+    
+    /* Orbs smaller on mobile */
+    .orb { opacity: 0.15 !important; }
+    .orb-1 { width: 200px !important; height: 200px !important; }
+    .orb-2 { width: 150px !important; height: 150px !important; }
+    
+    /* Floating orbs hidden on small screens */
+    .shape { opacity: 0.1 !important; }
+}
+
+@media (max-width: 480px) {
+    .navbar { height: 52px !important; padding: 0 10px !important; }
+    .nav-link { padding: 5px 6px !important; font-size: 0.7rem !important; }
+    .user-badge { display: none !important; }
+    
+    .stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+    .stat-card { padding: 12px 8px !important; }
+    .stat-value { font-size: 1.2rem !important; }
+    .stat-label { font-size: 0.7rem !important; }
+    
+    .main { padding: 12px 10px !important; }
+    .page-header h1 { font-size: 1.2rem !important; }
+    
+    .btn { padding: 12px 16px !important; font-size: 0.9rem !important; }
+    
+    .exam-card, .doc-card { padding: 14px 12px !important; }
+    .exam-meta { gap: 4px !important; }
+    .meta-pill { font-size: 0.7rem !important; padding: 3px 8px !important; }
+}
+
+/* Fix iOS zoom on input focus */
+@media screen and (max-width: 768px) {
+    input, select, textarea { font-size: 16px !important; }
+}
+
+/* Smooth scrolling */
+html { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+
+/* Prevent horizontal overflow */
+body { max-width: 100vw; overflow-x: hidden; }
+
+/* Better touch targets */
+a, button { min-height: 44px; min-width: 44px; }
+
+/* Fix viewport height on mobile */
+@media (max-height: 500px) {
+    .container { padding: 20px 16px !important; }
+    .buttons { margin-bottom: 30px !important; }
+}
+
+
+/* ===== MOBILE PERFORMANCE ===== */
+@media (max-width: 768px) {
+    /* Reduce animations on mobile for speed */
+    .orb { animation-duration: 40s !important; }
+    .particle { animation-duration: 25s !important; }
+    .bg-mesh { animation-duration: 30s !important; }
+    .grid { animation: none !important; }
+    .logo-icon { animation: logoPulse 4s ease-in-out infinite !important; }
+    
+    /* Reduce blur for performance */
+    .orb { filter: blur(40px) !important; }
+    .noise { display: none !important; }
+    
+    /* Faster transitions */
+    .btn-card, .stat-card, .exam-card, .doc-card, .action-card {
+        transition: transform 0.2s ease !important;
+    }
+}
+
+/* Safe area insets for notched phones */
+@supports (padding-top: env(safe-area-inset-top)) {
+    .navbar { padding-top: env(safe-area-inset-top) !important; }
+    body { padding-bottom: env(safe-area-inset-bottom) !important; }
+}
+
+/* Dark mode scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0a0a0f; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+</style>
 </head>
 <body>
 
 <!-- Navbar -->
 <nav class="navbar">
-    <a class="navbar-brand" href="{% url 'designer:home' %}"><span>PDF</span>toExam</a>
+    <a class="navbar-brand" href="{% url 'designer:home' %}">🎓 Exam<span>gen</span></a>
     <div class="nav-links">
         <a href="{% url 'designer:admin_dashboard' %}" class="nav-link">Dashboard</a>
         <a href="{% url 'designer:documents' %}" class="nav-link">Documents</a>
@@ -303,7 +452,7 @@
         <div class="card">
             <h2>👥 Assign Specific Users</h2>
             <div class="field">
-                <div style="max-height: 250px; overflow-y: auto; background: rgba(255,255,255,0.03);
+                <div style="max-height: 250px; overflow-y: auto; background: rgba(255,255,255,0.03); backdrop-filter: blur(20px); border-radius: 16px;
                             border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px;">
                     {% for user in users %}
                     <div class="checkbox-field">
@@ -435,7 +584,155 @@
                 outline: none; font-family: inherit; resize: vertical;
             }
             .modal textarea:focus, .modal select:focus, .modal input:focus { border-color: #667eea; }
-        </style>
+        
+/* ===== MOBILE OPTIMIZATION ===== */
+@media (max-width: 768px) {
+    * { -webkit-tap-highlight-color: transparent; }
+    body { -webkit-text-size-adjust: 100%; overflow-x: hidden; }
+    
+    /* Navbar mobile */
+    .navbar { padding: 0 12px !important; height: 56px !important; }
+    .navbar-brand { font-size: 1.1rem !important; }
+    .navbar-brand .logo { width: 30px !important; height: 30px !important; font-size: 1rem !important; }
+    .nav-links { gap: 4px !important; }
+    .nav-link { padding: 6px 8px !important; font-size: 0.75rem !important; }
+    .nav-link.logout { font-size: 0.7rem !important; }
+    
+    /* Main content */
+    .main { padding: 16px 12px !important; }
+    
+    /* Stats grid */
+    .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+    .stat-card { padding: 14px !important; }
+    .stat-value { font-size: 1.4rem !important; }
+    .stat-icon { font-size: 1.5rem !important; }
+    
+    /* Quick actions */
+    .quick-actions { grid-template-columns: 1fr !important; gap: 10px !important; }
+    .action-card { padding: 16px !important; }
+    .action-icon { width: 44px !important; height: 44px !important; font-size: 1.4rem !important; }
+    
+    /* Tables - horizontal scroll */
+    .table-scroll { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+    table { min-width: 500px !important; }
+    th, td { padding: 10px 12px !important; font-size: 0.8rem !important; }
+    
+    /* Cards */
+    .exam-card, .doc-card { padding: 16px !important; }
+    .exam-card h3 { font-size: 1rem !important; }
+    
+    /* Buttons - larger touch targets */
+    .btn { padding: 14px 20px !important; font-size: 0.95rem !important; min-height: 48px !important; }
+    .btn-sm { padding: 8px 14px !important; min-height: 36px !important; }
+    
+    /* Forms */
+    .form-group input, .form-group select, .form-group textarea { 
+        padding: 14px 16px !important; font-size: 16px !important; 
+        -webkit-appearance: none; border-radius: 10px !important;
+    }
+    
+    /* Upload zone */
+    .upload-zone { padding: 30px 20px !important; }
+    
+    /* Page headers */
+    .page-header h1 { font-size: 1.4rem !important; }
+    .section-title { font-size: 1.1rem !important; }
+    
+    /* Welcome banner */
+    .welcome { padding: 20px 16px !important; }
+    .welcome h1 { font-size: 1.3rem !important; }
+    
+    /* Search */
+    .search-box { max-width: 100% !important; }
+    
+    /* Exam grid */
+    .exam-grid { grid-template-columns: 1fr !important; gap: 14px !important; }
+    
+    /* Document grid */
+    .doc-grid { grid-template-columns: 1fr !important; }
+    
+    /* Orbs smaller on mobile */
+    .orb { opacity: 0.15 !important; }
+    .orb-1 { width: 200px !important; height: 200px !important; }
+    .orb-2 { width: 150px !important; height: 150px !important; }
+    
+    /* Floating orbs hidden on small screens */
+    .shape { opacity: 0.1 !important; }
+}
+
+@media (max-width: 480px) {
+    .navbar { height: 52px !important; padding: 0 10px !important; }
+    .nav-link { padding: 5px 6px !important; font-size: 0.7rem !important; }
+    .user-badge { display: none !important; }
+    
+    .stats-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+    .stat-card { padding: 12px 8px !important; }
+    .stat-value { font-size: 1.2rem !important; }
+    .stat-label { font-size: 0.7rem !important; }
+    
+    .main { padding: 12px 10px !important; }
+    .page-header h1 { font-size: 1.2rem !important; }
+    
+    .btn { padding: 12px 16px !important; font-size: 0.9rem !important; }
+    
+    .exam-card, .doc-card { padding: 14px 12px !important; }
+    .exam-meta { gap: 4px !important; }
+    .meta-pill { font-size: 0.7rem !important; padding: 3px 8px !important; }
+}
+
+/* Fix iOS zoom on input focus */
+@media screen and (max-width: 768px) {
+    input, select, textarea { font-size: 16px !important; }
+}
+
+/* Smooth scrolling */
+html { scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+
+/* Prevent horizontal overflow */
+body { max-width: 100vw; overflow-x: hidden; }
+
+/* Better touch targets */
+a, button { min-height: 44px; min-width: 44px; }
+
+/* Fix viewport height on mobile */
+@media (max-height: 500px) {
+    .container { padding: 20px 16px !important; }
+    .buttons { margin-bottom: 30px !important; }
+}
+
+
+/* ===== MOBILE PERFORMANCE ===== */
+@media (max-width: 768px) {
+    /* Reduce animations on mobile for speed */
+    .orb { animation-duration: 40s !important; }
+    .particle { animation-duration: 25s !important; }
+    .bg-mesh { animation-duration: 30s !important; }
+    .grid { animation: none !important; }
+    .logo-icon { animation: logoPulse 4s ease-in-out infinite !important; }
+    
+    /* Reduce blur for performance */
+    .orb { filter: blur(40px) !important; }
+    .noise { display: none !important; }
+    
+    /* Faster transitions */
+    .btn-card, .stat-card, .exam-card, .doc-card, .action-card {
+        transition: transform 0.2s ease !important;
+    }
+}
+
+/* Safe area insets for notched phones */
+@supports (padding-top: env(safe-area-inset-top)) {
+    .navbar { padding-top: env(safe-area-inset-top) !important; }
+    body { padding-bottom: env(safe-area-inset-bottom) !important; }
+}
+
+/* Dark mode scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0a0a0f; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+</style>
 
         <div class="modal-actions">
             <button class="btn btn-outline" onclick="closeQuestionModal()">Cancel</button>

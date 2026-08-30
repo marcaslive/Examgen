@@ -3,101 +3,198 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login - PDF to Exam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0a0f">
+    <title>Admin Login - Examgen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html { -webkit-text-size-adjust: 100%; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             align-items: center;
             justify-content: center;
+            background: #0a0a0f;
+            padding: 20px;
+            padding: env(safe-area-inset-top, 20px) env(safe-area-inset-right, 20px) env(safe-area-inset-bottom, 20px) env(safe-area-inset-left, 20px);
+            -webkit-font-smoothing: antialiased;
         }
+
+        /* Glassmorphism Nav */
+        .navbar {
+            position: fixed; top: 0; left: 0; right: 0; height: 60px;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px;
+            background: rgba(10, 10, 15, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            z-index: 100;
+        }
+
+        .navbar-brand {
+            display: flex; align-items: center; gap: 10px;
+            text-decoration: none; color: #fff; font-weight: 700; font-size: 1.1rem;
+        }
+        .navbar-brand .brand-icon {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center; font-size: 1rem;
+        }
+        .navbar-brand span {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+
+        /* Background */
+        .bg-mesh {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background: radial-gradient(ellipse at 30% 20%, rgba(102,126,234,0.12) 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 80%, rgba(118,75,162,0.10) 0%, transparent 50%);
+        }
+
+        .orb {
+            position: fixed; border-radius: 50%; filter: blur(80px);
+            z-index: 0; pointer-events: none;
+        }
+        .orb-1 {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.25), transparent 70%);
+            top: -80px; left: -80px;
+            animation: orbFloat1 18s ease-in-out infinite;
+        }
+        .orb-2 {
+            width: 250px; height: 250px;
+            background: radial-gradient(circle, rgba(118, 75, 162, 0.2), transparent 70%);
+            bottom: -60px; right: -60px;
+            animation: orbFloat2 22s ease-in-out infinite;
+        }
+
+        @keyframes orbFloat1 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(30px, 20px); } }
+        @keyframes orbFloat2 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-25px, -30px); } }
+
         .login-card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
             border-radius: 20px;
-            padding: 50px 40px;
+            padding: 32px 24px;
             width: 100%;
-            max-width: 440px;
-            backdrop-filter: blur(10px);
+            max-width: 400px;
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            position: relative;
+            z-index: 1;
+            animation: cardFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
         }
-        .login-header {
-            text-align: center;
-            margin-bottom: 35px;
+
+        @keyframes cardFadeIn {
+            from { opacity: 0; transform: translateY(16px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
-        .login-header .icon { font-size: 3rem; margin-bottom: 10px; }
-        .login-header h2 { color: #fff; font-size: 1.5rem; }
-        .login-header p { color: #9999b8; font-size: 0.9rem; margin-top: 5px; }
-        .form-group {
-            margin-bottom: 20px;
+
+        .login-header { text-align: center; margin-bottom: 28px; }
+        .login-header .icon { font-size: 2.5rem; margin-bottom: 12px; display: block; }
+        .login-header h2 {
+            font-size: 1.5rem; font-weight: 800; margin-bottom: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
+        .login-header p { color: rgba(255,255,255,0.5); font-size: 0.85rem; }
+
+        .form-group { margin-bottom: 16px; }
         .form-group label {
-            display: block;
-            color: #b8b8d4;
-            font-size: 0.85rem;
-            margin-bottom: 6px;
-            font-weight: 500;
+            display: block; color: rgba(255,255,255,0.6);
+            font-size: 0.82rem; margin-bottom: 6px; font-weight: 500;
         }
         .form-group input {
-            width: 100%;
-            padding: 14px 16px;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 10px;
-            color: #fff;
-            font-size: 1rem;
-            outline: none;
-            transition: border-color 0.3s;
+            width: 100%; padding: 14px 16px; font-size: 16px;
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 12px; color: #fff; outline: none;
+            font-family: inherit; transition: border-color 0.2s, box-shadow 0.2s;
+            -webkit-appearance: none;
         }
         .form-group input:focus {
             border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
         }
-        .form-group input::placeholder { color: #666; }
+        .form-group input::placeholder { color: rgba(255,255,255,0.3); }
+
         .btn-login {
-            width: 100%;
-            padding: 14px;
+            width: 100%; padding: 15px; font-size: 1rem; font-weight: 700;
             background: linear-gradient(135deg, #667eea, #764ba2);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 10px;
+            color: #fff; border: none; border-radius: 12px;
+            cursor: pointer; font-family: inherit; margin-top: 8px;
+            transition: opacity 0.2s, transform 0.15s;
+            min-height: 50px;
         }
-        .btn-login:hover { opacity: 0.9; transform: translateY(-2px); }
+        .btn-login:active { transform: scale(0.98); }
+        .btn-login:hover { opacity: 0.9; }
         .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+
         .error-msg {
-            background: rgba(255,71,87,0.15);
-            border: 1px solid rgba(255,71,87,0.3);
-            color: #ff4757;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-            text-align: center;
+            background: rgba(255,71,87,0.12); border: 1px solid rgba(255,71,87,0.25);
+            color: #ff6b7a; padding: 12px 16px; border-radius: 10px;
+            margin-bottom: 16px; font-size: 0.85rem; text-align: center;
         }
+
         .back-link {
-            display: block;
-            text-align: center;
-            margin-top: 25px;
-            color: #667eea;
-            text-decoration: none;
-            font-size: 0.9rem;
+            display: block; text-align: center; margin-top: 20px;
+            color: rgba(255,255,255,0.4); text-decoration: none; font-size: 0.85rem;
+            transition: color 0.2s;
         }
-        .back-link:hover { text-decoration: underline; }
+        .back-link:hover { color: #667eea; }
+
         .loading { display: none; }
         .loading.show { display: inline; }
+
+        /* Transition overlay for back navigation */
+        .transition-overlay {
+            position: fixed; inset: 0; background: #0a0a0f;
+            z-index: 9999; pointer-events: none;
+            opacity: 0; transition: opacity 0.3s ease;
+        }
+        .transition-overlay.active { opacity: 1; pointer-events: all; }
+
+        /* Desktop */
+        @media (min-width: 769px) {
+            .navbar { padding: 0 40px; height: 64px; }
+            .navbar-brand { font-size: 1.2rem; }
+            .navbar-brand .brand-icon { width: 36px; height: 36px; font-size: 1.1rem; }
+            body { padding: 40px; }
+            .login-card { padding: 44px 40px; border-radius: 24px; }
+            .login-header { margin-bottom: 36px; }
+            .login-header .icon { font-size: 3rem; }
+            .login-header h2 { font-size: 1.8rem; }
+            .form-group { margin-bottom: 20px; }
+            .btn-login { padding: 16px; }
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
     </style>
 </head>
 <body>
+    <!-- Glassmorphism Nav -->
+    <nav class="navbar">
+        <a href="{% url 'designer:home' %}" class="navbar-brand" data-transition-back>
+            <div class="brand-icon"></div>
+            Exam<span>gen</span>
+        </a>
+    </nav>
+
+    <div class="bg-mesh"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+
     <div class="login-card">
         <div class="login-header">
-            <div class="icon">🛡️</div>
+            <span class="icon">️</span>
             <h2>Admin Login</h2>
             <p>Sign in to the administration panel</p>
         </div>
@@ -112,11 +209,11 @@
             {% csrf_token %}
             <div class="form-group">
                 <label for="username">Username</label>
-                <input type="text" id="username" name="username" placeholder="Enter username" required autofocus>
+                <input type="text" id="username" name="username" placeholder="Enter username" required autofocus autocomplete="username">
             </div>
             <div class="form-group">
                 <label for="password">Password</label>
-                <input type="password" id="password" name="password" placeholder="Enter password" required>
+                <input type="password" id="password" name="password" placeholder="Enter password" required autocomplete="current-password">
             </div>
             <button type="submit" class="btn-login" id="btn-submit">
                 <span id="btn-text">Sign In</span>
@@ -124,8 +221,10 @@
             </button>
         </form>
 
-        <a href="{% url 'designer:home' %}" class="back-link">← Back to Home</a>
+        <a href="{% url 'designer:home' %}" class="back-link" data-transition-back>← Back to Home</a>
     </div>
+
+    <div class="transition-overlay" id="transition-overlay"></div>
 
     <script>
         document.getElementById('login-form').addEventListener('submit', function(e) {
@@ -135,39 +234,26 @@
             const btnText = document.getElementById('btn-text');
             const btnLoading = document.getElementById('btn-loading');
             const errorContainer = document.getElementById('error-container');
-
             btn.disabled = true;
             btnText.style.display = 'none';
             btnLoading.classList.add('show');
             errorContainer.style.display = 'none';
-
             const formData = new FormData(form);
-
-            fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                }
-            })
+            fetch(form.action, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' }})
             .then(r => r.json())
             .then(data => {
-                if (data.success) {
-                    window.location.href = data.redirect;
-                } else {
-                    errorContainer.textContent = data.error || 'Login failed.';
-                    errorContainer.style.display = 'block';
-                    btn.disabled = false;
-                    btnText.style.display = 'inline';
-                    btnLoading.classList.remove('show');
-                }
+                if (data.success) { window.location.href = data.redirect; }
+                else { errorContainer.textContent = data.error || 'Login failed.'; errorContainer.style.display = 'block'; btn.disabled = false; btnText.style.display = 'inline'; btnLoading.classList.remove('show'); }
             })
-            .catch(() => {
-                errorContainer.textContent = 'Network error. Please try again.';
-                errorContainer.style.display = 'block';
-                btn.disabled = false;
-                btnText.style.display = 'inline';
-                btnLoading.classList.remove('show');
+            .catch(() => { errorContainer.textContent = 'Network error. Please try again.'; errorContainer.style.display = 'block'; btn.disabled = false; btnText.style.display = 'inline'; btnLoading.classList.remove('show'); });
+        });
+
+        // Smooth back transition
+        document.querySelectorAll('[data-transition-back]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.getElementById('transition-overlay').classList.add('active');
+                setTimeout(function() { window.location.href = link.href; }, 300);
             });
         });
     </script>

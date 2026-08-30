@@ -35,7 +35,42 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     ".onrender.com",
+    ".e2b.app",
 ]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.e2b.app",
+    "https://*.onrender.com",
+]
+
+# Detect if running in preview/sandbox environment (Arena.e2b.app)
+IS_PREVIEW = os.environ.get("E2B_SANDBOX", "").lower() == "true"
+
+# Always detect HTTPS proxy (safe for all environments)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Cookie settings:
+# - Production (DEBUG=False): use Secure + SameSite=None for HTTPS
+# - Preview (E2B_SANDBOX=True): use SameSite=None but NOT Secure (iframe HTTP issue)
+# - Local dev (DEBUG=True, no sandbox): use normal cookies
+if not DEBUG:
+    # Production: full security
+    CSRF_COOKIE_SAMESITE = 'None'
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SAMESITE = 'None'
+    SESSION_COOKIE_SECURE = True
+elif IS_PREVIEW:
+    # Preview in iframe: SameSite=None for cross-origin, but no Secure flag (HTTP in iframe)
+    CSRF_COOKIE_SAMESITE = 'None'
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SAMESITE = 'None'
+    SESSION_COOKIE_SECURE = False
+else:
+    # Local dev
+    CSRF_COOKIE_SAMESITE = 'Lax'
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SECURE = False
 
 
 # ============================================================
@@ -61,6 +96,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -188,6 +224,12 @@ STATICFILES_DIRS = [
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
 
 # ============================================================
 # MEDIA / UPLOADED FILES
@@ -257,21 +299,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ============================================================
 
 if not DEBUG:
-    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-
-    SESSION_COOKIE_SECURE = True
-
-    CSRF_COOKIE_SECURE = True
-
     SECURE_BROWSER_XSS_FILTER = True
-
     SECURE_CONTENT_TYPE_NOSNIFF = True
-
     X_FRAME_OPTIONS = "DENY"
     
     CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "exam-gen-cache",
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "exam-gen-cache",
+        }
     }
-}

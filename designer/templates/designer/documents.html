@@ -3,118 +3,139 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Documents - PDF to Exam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="theme-color" content="#0b0d17">
+    <title>Documents - Examgen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/design-system.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; }
-        .navbar { background: rgba(20,20,35,0.95); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 0 30px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-        .navbar-brand { color: #fff; font-size: 1.2rem; font-weight: 700; text-decoration: none; }
-        .navbar-brand span { color: #667eea; }
-        .nav-links { display: flex; gap: 8px; align-items: center; }
-        .nav-link { color: #b8b8d4; text-decoration: none; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; transition: all 0.2s; }
-        .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
-        .nav-link.active { background: rgba(102,126,234,0.2); color: #667eea; }
-        .nav-link.logout { color: #ff6b6b; }
-
-        .main { padding: 30px; max-width: 1200px; margin: 0 auto; }
-        .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; }
-        .page-header h1 { font-size: 1.8rem; color: #fff; }
-
         .storage-bar {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 12px;
-            padding: 16px 20px;
-            margin-bottom: 25px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-5);
+            margin-bottom: var(--space-6);
         }
-        .storage-info { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem; color: #9999b8; }
-        .storage-track { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
-        .storage-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); border-radius: 4px; transition: width 0.5s; }
-        .storage-fill.warning { background: linear-gradient(90deg, #ffa502, #ff4757); }
+        .storage-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: var(--space-3);
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+        }
 
         .upload-zone {
-            background: rgba(255,255,255,0.03);
-            border: 2px dashed rgba(255,255,255,0.15);
-            border-radius: 16px;
-            padding: 50px;
+            background: var(--bg-card);
+            border: 2px dashed var(--border-medium);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-12);
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 25px;
+            transition: all var(--transition-base);
+            margin-bottom: var(--space-6);
         }
-        .upload-zone:hover, .upload-zone.dragover { border-color: #667eea; background: rgba(102,126,234,0.05); }
-        .upload-zone .icon { font-size: 3rem; margin-bottom: 12px; }
-        .upload-zone h3 { color: #fff; margin-bottom: 6px; }
-        .upload-zone p { color: #9999b8; font-size: 0.9rem; }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: var(--accent-primary);
+            background: var(--accent-primary-soft);
+        }
+        .upload-zone .icon { font-size: 3rem; margin-bottom: var(--space-3); }
+        .upload-zone h3 { font-size: var(--text-lg); margin-bottom: var(--space-2); }
+        .upload-zone p { color: var(--text-secondary); font-size: var(--text-sm); }
         .upload-zone input[type="file"] { display: none; }
 
-        .upload-progress { margin-bottom: 25px; display: none; }
-        .progress-bar { height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; margin-top: 8px; }
-        .progress-fill { height: 100%; background: #667eea; border-radius: 3px; transition: width 0.3s; width: 0; }
-
-        .actions-bar { display: flex; gap: 10px; margin-bottom: 20px; }
-        .btn {
-            padding: 10px 20px; border: none; border-radius: 10px;
-            font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+        .upload-progress {
+            margin-bottom: var(--space-6);
+            display: none;
         }
-        .btn-danger { background: rgba(255,71,87,0.15); color: #ff4757; }
-        .btn-danger:hover { background: rgba(255,71,87,0.25); }
-        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
-        .btn-primary:hover { opacity: 0.9; }
+        .upload-progress span {
+            display: block;
+            margin-bottom: var(--space-2);
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+        }
+
+        .actions-bar {
+            display: flex;
+            gap: var(--space-3);
+            margin-bottom: var(--space-6);
+        }
 
         .doc-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 16px;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: var(--space-4);
         }
+
         .doc-card {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 12px;
-            padding: 18px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xl);
+            padding: var(--space-5);
             display: flex;
-            gap: 14px;
-            transition: all 0.2s;
+            gap: var(--space-4);
+            transition: all var(--transition-base);
         }
-        .doc-card:hover { background: rgba(255,255,255,0.06); }
-        .doc-icon { font-size: 2rem; flex-shrink: 0; padding-top: 2px; }
+        .doc-card:hover {
+            border-color: var(--border-medium);
+        }
+
+        .doc-icon { font-size: 2rem; flex-shrink: 0; }
         .doc-info { flex: 1; min-width: 0; }
-        .doc-name { font-weight: 600; color: #fff; font-size: 0.95rem; margin-bottom: 6px; word-break: break-word; }
-        .doc-meta { font-size: 0.8rem; color: #9999b8; line-height: 1.6; }
-        .doc-meta span { margin-right: 12px; }
-        .doc-actions { display: flex; gap: 8px; margin-top: 10px; }
-        .btn-sm {
-            padding: 5px 12px; border: none; border-radius: 6px; font-size: 0.78rem;
-            cursor: pointer; transition: all 0.2s;
+        .doc-name {
+            font-weight: 600;
+            font-size: var(--text-base);
+            margin-bottom: var(--space-2);
+            word-break: break-word;
         }
-        .btn-sm.delete { background: rgba(255,71,87,0.12); color: #ff4757; }
-        .btn-sm.delete:hover { background: rgba(255,71,87,0.25); }
+        .doc-meta {
+            font-size: var(--text-sm);
+            color: var(--text-tertiary);
+            line-height: 1.6;
+        }
+        .doc-meta span { margin-right: var(--space-3); }
+        .doc-actions {
+            display: flex;
+            gap: var(--space-2);
+            margin-top: var(--space-3);
+        }
+
         .badge-status {
-            display: inline-block; padding: 2px 8px; border-radius: 10px;
-            font-size: 0.72rem; font-weight: 600;
+            display: inline-block;
+            padding: var(--space-1) var(--space-2);
+            border-radius: var(--radius-full);
+            font-size: var(--text-xs);
+            font-weight: 600;
         }
-        .badge-ready { background: rgba(46,213,115,0.15); color: #2ed573; }
-        .badge-processing { background: rgba(255,165,2,0.15); color: #ffa502; }
-        .badge-error { background: rgba(255,71,87,0.15); color: #ff4757; }
-
-        .empty-state { text-align: center; padding: 60px 20px; color: #666; }
-        .empty-state .icon { font-size: 4rem; margin-bottom: 15px; }
-        .empty-state p { font-size: 1rem; }
-
-        .toast {
-            position: fixed; bottom: 30px; right: 30px; padding: 14px 24px;
-            border-radius: 10px; color: #fff; font-size: 0.9rem; z-index: 1000;
-            transform: translateY(100px); opacity: 0; transition: all 0.3s;
+        .badge-status.badge-ready {
+            background: var(--accent-success-soft);
+            color: var(--accent-success);
         }
-        .toast.show { transform: translateY(0); opacity: 1; }
-        .toast.success { background: rgba(46,213,115,0.9); }
-        .toast.error { background: rgba(255,71,87,0.9); }
+        .badge-status.badge-processing {
+            background: var(--accent-warning-soft);
+            color: var(--accent-warning);
+        }
+        .badge-status.badge-error {
+            background: var(--accent-danger-soft);
+            color: var(--accent-danger);
+        }
+
+        @media (max-width: 768px) {
+            .doc-grid { grid-template-columns: 1fr; }
+            .upload-zone { padding: var(--space-8); }
+        }
     </style>
 </head>
 <body>
+    <!-- Navbar -->
     <nav class="navbar">
-        <a href="{% url 'designer:home' %}" class="navbar-brand">📄 PDF<span>toExam</span></a>
+        <a href="{% url 'designer:home' %}" class="navbar-brand">
+            <div class="logo-mark"></div>
+            Exam<span>gen</span>
+        </a>
+        <button class="nav-toggle" onclick="this.classList.toggle('active'); document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu"><span></span><span></span><span></span></button>
+            <span></span><span></span><span></span>
+        </button>
         <div class="nav-links">
             <a href="{% url 'designer:admin_dashboard' %}" class="nav-link">Dashboard</a>
             <a href="{% url 'designer:documents' %}" class="nav-link active">Documents</a>
@@ -125,21 +146,23 @@
         </div>
     </nav>
 
-    <div class="main">
+    <div class="main-content">
         <div class="page-header">
             <h1>📄 Document Library</h1>
         </div>
 
+        <!-- Storage Bar -->
         <div class="storage-bar">
             <div class="storage-info">
-                <span>Storage Used: {{ total_size_display }} / {{ max_size_display }}</span>
+                <span>Storage: {{ total_size_display }} / {{ max_size_display }}</span>
                 <span>{{ remaining_size_display }} remaining</span>
             </div>
-            <div class="storage-track">
-                <div class="storage-fill {% if usage_percent > 80 %}warning{% endif %}" style="width: {{ usage_percent }}%"></div>
+            <div class="progress-track">
+                <div class="progress-fill {% if usage_percent > 80 %}warning{% endif %}" style="width: {{ usage_percent }}%"></div>
             </div>
         </div>
 
+        <!-- Upload Zone -->
         <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
             <div class="icon">📤</div>
             <h3>Drop files here or click to upload</h3>
@@ -147,17 +170,20 @@
             <input type="file" id="file-input" multiple accept=".pdf,.docx,.doc,.pptx,.ppt,.odt,.txt">
         </div>
 
+        <!-- Upload Progress -->
         <div class="upload-progress" id="upload-progress">
             <span id="upload-status">Uploading...</span>
-            <div class="progress-bar">
+            <div class="progress-track">
                 <div class="progress-fill" id="progress-fill"></div>
             </div>
         </div>
 
+        <!-- Actions -->
         <div class="actions-bar">
-            <button class="btn btn-danger" onclick="resetUploads()">🗑️ Reset All Uploads</button>
+            <button class="btn btn-danger" onclick="resetUploads()">🗑️ Reset All</button>
         </div>
 
+        <!-- Document Grid -->
         <div class="doc-grid" id="doc-grid">
             {% for doc in documents %}
             <div class="doc-card" id="doc-{{ doc.id }}">
@@ -175,20 +201,21 @@
                         <span>{{ doc.uploaded_at|date:"M d, Y H:i" }}</span>
                     </div>
                     <div class="doc-actions">
-                        <button class="btn-sm delete" onclick="deleteDoc('{{ doc.id }}')">Delete</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteDoc('{{ doc.id }}')">Delete</button>
                     </div>
                 </div>
             </div>
             {% empty %}
             <div class="empty-state" id="empty-state">
-                <div class="icon">📂</div>
-                <p>No documents uploaded yet. Upload your first PDF!</p>
+                <div class="empty-icon">📂</div>
+                <h3 class="empty-title">No Documents</h3>
+                <p class="empty-text">No documents uploaded yet. Upload your first PDF!</p>
             </div>
             {% endfor %}
         </div>
     </div>
 
-    <div class="toast" id="toast"></div>
+    <div class="toast-container" id="toast-container"></div>
 
     <script>
         const csrfToken = '{{ csrf_token }}';
@@ -304,11 +331,25 @@
         }
 
         function showToast(msg, type) {
-            const toast = document.getElementById('toast');
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + type;
             toast.textContent = msg;
-            toast.className = 'toast ' + type + ' show';
-            setTimeout(() => { toast.classList.remove('show'); }, 3500);
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
         }
+    </script>
+    <script>
+        document.querySelectorAll('.nav-link').forEach(function(link) {
+            link.addEventListener('click', function() {
+                document.querySelector('.nav-links').classList.remove('open');
+                document.querySelector('.nav-toggle').classList.remove('active');
+            });
+        });
     </script>
 </body>
 </html>
