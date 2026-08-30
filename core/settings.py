@@ -83,7 +83,11 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    
+    # Cloudinary Integration (Must be loaded BEFORE staticfiles)
+    "cloudinary_storage",
     "django.contrib.staticfiles",
+    "cloudinary",
 
     # PDF → Exam application
     "designer",
@@ -158,7 +162,7 @@ if DATABASE_URL:
         )
     }
 else:
-    # Local development fallback
+    # Local development fallback (SQLite)
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -213,7 +217,7 @@ USE_TZ = True
 
 
 # ============================================================
-# STATIC FILES
+# STATIC FILES AND STORAGE CONFIGURATIONS
 # ============================================================
 
 STATIC_URL = "/static/"
@@ -224,10 +228,25 @@ STATICFILES_DIRS = [
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
+# Storage engines for Static (WhiteNoise) and Media (Cloudinary)
 STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
+}
+
+
+# ============================================================
+# CLOUDINARY CONFIGURATION
+# ============================================================
+
+CLOUDINARY_STORAGE = {
+    "CLOUD_NAME": os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    "API_KEY": os.environ.get("CLOUDINARY_API_KEY"),
+    "API_SECRET": os.environ.get("CLOUDINARY_API_SECRET"),
 }
 
 
@@ -277,7 +296,6 @@ AI_MODEL = os.environ.get(
 )
 
 HUGGINGFACE_TOKEN = os.getenv('HUGGINGFACE_TOKEN', '')
-
 
 
 # ============================================================

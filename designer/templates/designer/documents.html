@@ -269,8 +269,13 @@
                 try {
                     const data = JSON.parse(xhr.responseText);
                     if (data.success) {
-                        showToast(data.message, 'success');
-                        setTimeout(() => location.reload(), 800);
+                        // Show detailed errors if any
+                        if (data.errors && data.errors.length > 0) {
+                            showToast(data.errors.join('; '), 'error');
+                        } else {
+                            showToast(data.message, 'success');
+                            setTimeout(() => location.reload(), 800);
+                        }
                     } else {
                         showToast(data.error, 'error');
                     }
