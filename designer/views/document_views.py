@@ -84,68 +84,98 @@ def document_upload_view(request):
             continue
 
         try:
-            doc = Document(
-                title=filename.rsplit('.', 1)[0] if '.' in filename else filename,
-                original_filename=filename,
-                file=f,
-                file_type=ext,
-                file_size=f.size,
-                status='processing',
-                uploaded_by=request.user,
-            )
-            doc.save()
+            import tempfile
+            
+            # Save uploaded file to temp location for processing
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f'.{ext}') as temp_file:
+                for chunk in f.chunks():
+                    temp_file.write(chunk)
+                temp_path = temp_file.name
 
-            # Get the saved file path
-            file_path = doc.file.path
-
-            # Convert non-PDF files
-            if ext != 'pdf':
-                doc.status = 'processing'
-                doc.save()
-
-                converted_path = DocumentConverter.convert_to_pdf(file_path, filename)
-                if converted_path and converted_path != file_path:
-                    # Replace the file with the converted PDF
-                    from django.core.files import File
-                    with open(converted_path, 'rb') as converted_file:
-                        new_filename = filename.rsplit('.', 1)[0] + '.pdf'
-                        doc.file.save(new_filename, File(converted_file), save=False)
-                        doc.file_type = 'pdf'
-                        doc.original_filename = filename  # Keep original name
-                    # Clean up converted file
-                    try:
-                        os.remove(converted_path)
-                    except OSError:
-                        pass
-                elif converted_path is None:
-                    doc.status = 'error'
-                    doc.error_message = f'Could not convert .{ext} to PDF. Stored original file.'
-                    doc.save()
-                    uploaded.append({
-                        'id': str(doc.id),
-                        'name': doc.original_filename,
-                        'size': doc.file_size_display,
-                        'status': doc.status,
-                    })
-                    continue
-
-            # Get page count for PDFs
             try:
-                if doc.file_type == 'pdf' or ext == 'pdf':
-                    doc.page_count = PDFService.get_page_count(doc.file.path)
-                doc.status = 'ready'
-            except Exception as e:
-                doc.status = 'error'
-                doc.error_message = str(e)
+                # Convert non-PDF files
+                if ext != 'pdf':
+                    converted_path = DocumentConverter.convert_to_pdf(temp_path, filename)
+                    if converted_path and converted_path != temp_path:
+                        # Use the converted PDF
+                        with open(converted_path, 'rb') as converted_file:
+                            from django.core.files import File
+                            doc = Document(
+                                title=filename.rsplit('.', 1)[0] if '.' in filename else filename,
+                                original_filename=filename,
+                                file=File(converted_file, name=filename.rsplit('.', 1)[0] + '.pdf'),
+                                file_type='pdf',
+                                file_size=os.path.getsize(converted_path),
+                                status='processing',
+                                uploaded_by=request.user,
+                            )
+                            doc.save()
+                        # Clean up converted file
+                        try:
+                            os.remove(converted_path)
+                        except OSError:
+                            pass
+                    elif converted_path is None:
+                        # Store original file if conversion failed
+                        with open(temp_path, 'rb') as original_file:
+                            from django.core.files import File
+                            doc = Document(
+                                title=filename.rsplit('.', 1)[0] if '.' in filename else filename,
+                                original_filename=filename,
+                                file=File(original_file, name=filename),
+                                file_type=ext,
+                                file_size=f.size,
+                                status='error',
+                                error_message=f'Could not convert .{ext} to PDF. Stored original file.',
+                                uploaded_by=request.user,
+                            )
+                            doc.save()
+                        uploaded.append({
+                            'id': str(doc.id),
+                            'name': doc.original_filename,
+                            'size': doc.file_size_display,
+                            'status': doc.status,
+                        })
+                        continue
+                else:
+                    # PDF file - save directly
+                    with open(temp_path, 'rb') as pdf_file:
+                        from django.core.files import File
+                        doc = Document(
+                            title=filename.rsplit('.', 1)[0] if '.' in filename else filename,
+                            original_filename=filename,
+                            file=File(pdf_file, name=filename),
+                            file_type='pdf',
+                            file_size=f.size,
+                            status='processing',
+                            uploaded_by=request.user,
+                        )
+                        doc.save()
 
-            doc.save()
-            uploaded.append({
-                'id': str(doc.id),
-                'name': doc.original_filename,
-                'size': doc.file_size_display,
-                'pages': doc.page_count,
-                'status': doc.status,
-            })
+                # Get page count for PDFs
+                try:
+                    if doc.file_type == 'pdf':
+                        doc.page_count = PDFService.get_page_count(temp_path)
+                    doc.status = 'ready'
+                except Exception as e:
+                    doc.status = 'error'
+                    doc.error_message = str(e)
+
+                doc.save()
+                uploaded.append({
+                    'id': str(doc.id),
+                    'name': doc.original_filename,
+                    'size': doc.file_size_display,
+                    'pages': doc.page_count,
+                    'status': doc.status,
+                })
+
+            finally:
+                # Clean up temp file
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
 
         except Exception as e:
             errors.append(f"'{filename}': {str(e)}")

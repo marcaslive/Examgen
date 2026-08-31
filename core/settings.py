@@ -50,9 +50,6 @@ IS_PREVIEW = os.environ.get("E2B_SANDBOX", "").lower() == "true"
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Cookie settings:
-# - Production (DEBUG=False): use Secure + SameSite=None for HTTPS
-# - Preview (E2B_SANDBOX=True): use SameSite=None but NOT Secure (iframe HTTP issue)
-# - Local dev (DEBUG=True, no sandbox): use normal cookies
 if not DEBUG:
     # Production: full security
     CSRF_COOKIE_SAMESITE = 'None'
@@ -83,11 +80,10 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
-    
-    # Cloudinary Integration (Must be loaded BEFORE staticfiles)
+
+    # Cloudinary Integration (must be placed BEFORE staticfiles)
     "cloudinary_storage",
     "django.contrib.staticfiles",
-    "cloudinary",
 
     # PDF → Exam application
     "designer",
@@ -124,11 +120,8 @@ ROOT_URLCONF = "core.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-
         "DIRS": [],
-
         "APP_DIRS": True,
-
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
@@ -177,28 +170,16 @@ else:
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": (
-            "django.contrib.auth.password_validation."
-            "UserAttributeSimilarityValidator"
-        ),
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        "NAME": (
-            "django.contrib.auth.password_validation."
-            "MinimumLengthValidator"
-        ),
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        "NAME": (
-            "django.contrib.auth.password_validation."
-            "CommonPasswordValidator"
-        ),
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        "NAME": (
-            "django.contrib.auth.password_validation."
-            "NumericPasswordValidator"
-        ),
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -244,9 +225,9 @@ STORAGES = {
 # ============================================================
 
 CLOUDINARY_STORAGE = {
-    "CLOUD_NAME": os.environ.get("CLOUDINARY_CLOUD_NAME"),
-    "API_KEY": os.environ.get("CLOUDINARY_API_KEY"),
-    "API_SECRET": os.environ.get("CLOUDINARY_API_SECRET"),
+    "CLOUD_NAME": os.environ.get("CLOUDINARY_CLOUD_NAME", ""),
+    "API_KEY": os.environ.get("CLOUDINARY_API_KEY", ""),
+    "API_SECRET": os.environ.get("CLOUDINARY_API_SECRET", ""),
 }
 
 
@@ -255,7 +236,6 @@ CLOUDINARY_STORAGE = {
 # ============================================================
 
 MEDIA_URL = "/media/"
-
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 
@@ -265,9 +245,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # Maximum upload size: 1 GB
 MAX_UPLOAD_SIZE = 1024 * 1024 * 1024
-
 FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
-
 DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
 
 
@@ -276,9 +254,7 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
 # ============================================================
 
 LOGIN_URL = "/login/"
-
 LOGIN_REDIRECT_URL = "/user-dashboard/"
-
 LOGOUT_REDIRECT_URL = "/"
 
 
@@ -286,16 +262,14 @@ LOGOUT_REDIRECT_URL = "/"
 # AI / GEMINI
 # ============================================================
 
-# Loaded from .env / Render environment variables
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-# Your question_generator.py reads AI_MODEL
 AI_MODEL = os.environ.get(
     "AI_MODEL",
     "gemini-3.6-flash"
 )
 
-HUGGINGFACE_TOKEN = os.getenv('HUGGINGFACE_TOKEN', '')
+HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN", "")
 
 
 # ============================================================
