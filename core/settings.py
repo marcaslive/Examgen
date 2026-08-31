@@ -9,16 +9,12 @@ import os
 
 import dj_database_url
 from dotenv import load_dotenv
-import cloudinary
-import cloudinary.uploader
-import cloudinary.api
 
 
 # ============================================================
 # ENVIRONMENT
 # ============================================================
 
-# Load .env from project root
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
@@ -46,23 +42,6 @@ CSRF_TRUSTED_ORIGINS = [
 
 
 # ============================================================
-# CLOUDINARY CONFIGURATION
-# ============================================================
-
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
-    'API_KEY': os.environ.get('CLOUDINARY_API_KEY', ''),
-    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET', ''),
-}
-
-cloudinary.config(
-    cloud_name=CLOUDINARY_STORAGE['CLOUD_NAME'],
-    api_key=CLOUDINARY_STORAGE['API_KEY'],
-    api_secret=CLOUDINARY_STORAGE['API_SECRET'],
-)
-
-
-# ============================================================
 # APPLICATION DEFINITION
 # ============================================================
 
@@ -72,10 +51,10 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
-    "django.contrib.staticfiles",
 
-    # Cloudinary for media storage
+    # Cloudinary MUST be placed BEFORE staticfiles
     "cloudinary_storage",
+    "django.contrib.staticfiles",
 
     # PDF → Exam application
     "designer",
@@ -112,11 +91,8 @@ ROOT_URLCONF = "core.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-
         "DIRS": [],
-
         "APP_DIRS": True,
-
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
@@ -210,32 +186,21 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static"),
+    BASE_DIR / "static",
 ]
 
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-
-# WhiteNoise compression and caching
+# WhiteNoise Configuration
 WHITENOISE_USE_FINDERS = True
-
-# Production: disable autorefresh, enable compression
-if not DEBUG:
-    WHITENOISE_AUTOREFRESH = False
-    WHITENOISE_KEEP_ONLY_HASHED_FILES = True
-else:
-    WHITENOISE_AUTOREFRESH = True
+WHITENOISE_MANIFEST_STRICT = False
 
 
 # ============================================================
-# MEDIA / UPLOADED FILES
+# STORAGE CONFIGURATION (Django 4.2+)
 # ============================================================
 
-MEDIA_URL = "/media/"
-
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-
-# Django 4.2+ STORAGES configuration (required for file uploads)
 STORAGES = {
     "default": {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
@@ -245,13 +210,35 @@ STORAGES = {
     },
 }
 
+# Compatibility setting for django-cloudinary-storage
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
+
+
+# ============================================================
+# CLOUDINARY CONFIGURATION
+# ============================================================
+
+CLOUDINARY_STORAGE = {
+    "CLOUD_NAME": os.environ.get("CLOUDINARY_CLOUD_NAME", ""),
+    "API_KEY": os.environ.get("CLOUDINARY_API_KEY", ""),
+    "API_SECRET": os.environ.get("CLOUDINARY_API_SECRET", ""),
+}
+
+
+# ============================================================
+# MEDIA / UPLOADED FILES
+# ============================================================
+
+MEDIA_URL = "/media/"
+
+MEDIA_ROOT = BASE_DIR / "media"
+
 
 # ============================================================
 # FILE UPLOAD LIMITS
 # ============================================================
 
-# Maximum upload size: 1 GB
-MAX_UPLOAD_SIZE = 1024 * 1024 * 1024
+MAX_UPLOAD_SIZE = 1024 * 1024 * 1024  # 1 GB
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
 
@@ -273,17 +260,14 @@ LOGOUT_REDIRECT_URL = "/"
 # AI / GEMINI
 # ============================================================
 
-# Loaded from .env / Render environment variables
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-# Your question_generator.py reads AI_MODEL
 AI_MODEL = os.environ.get(
     "AI_MODEL",
     "gemini-3.6-flash"
 )
 
-HUGGINGFACE_TOKEN = os.getenv('HUGGINGFACE_TOKEN', '')
-
+HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN", "")
 
 
 # ============================================================
@@ -316,10 +300,10 @@ if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
 
     X_FRAME_OPTIONS = "DENY"
-    
+
     CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": "exam-gen-cache",
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "exam-gen-cache",
+        }
     }
-}
