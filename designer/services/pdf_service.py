@@ -4,22 +4,33 @@ import logging
 import os
 import random
 import re
+import time
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 # Soft cap so one huge page cannot dominate Gemini context alone.
-# Full-document capping still happens in question_generator (GEMINI_INPUT_CHARS).
 MAX_CHARS_PER_PAGE = 12000
 
+# Hard timeout for text extraction per PDF (in seconds) to prevent Gunicorn worker timeouts
+MAX_EXTRACTION_TIME_SEC = 12.0
 
-def _try_import_pypdf2():
+# Max default pages to extract when no specific range is selected
+MAX_DEFAULT_PAGES = 80
+
+
+def _try_import_pdf_reader():
+    """Prefer modern pypdf (faster, more stable), fallback to legacy PyPDF2."""
     try:
-        from PyPDF2 import PdfReader
+        from pypdf import PdfReader
         return PdfReader
     except ImportError:
-        logger.error("PyPDF2 is not installed. Run: pip install PyPDF2")
-        return None
+        try:
+            from PyPDF2 import PdfReader
+            return PdfReader
+        except ImportError:
+            logger.error("Neither 'pypdf' nor 'PyPDF2' is installed!")
+            return None
 
 
 class PDFService:
@@ -41,7 +52,7 @@ class PDFService:
         if not PDFService._validate_path(file_path):
             return None
 
-        PdfReader = _try_import_pypdf2()
+        PdfReader = _try_import_pdf_reader()
         if PdfReader is None:
             return None
 
@@ -53,7 +64,6 @@ class PDFService:
 
         try:
             if getattr(reader, "is_encrypted", False):
-                # Try empty password (common for "open" encrypted PDFs)
                 try:
                     ok = reader.decrypt("")
                     if not ok:
@@ -72,10 +82,7 @@ class PDFService:
         """Normalize extracted PDF text."""
         if not text:
             return ""
-        # Replace nulls / form-feed / weird separators common in PDFs
-        text = text.replace("\x00", " ")
-        text = text.replace("\x0c", "\n")  # form feed
-        # Collapse excessive blank lines / spaces but keep paragraph breaks
+        text = text.replace("\x00", " ").replace("\x0c", "\n")
         text = re.sub(r"[ \t]+", " ", text)
         text = re.sub(r"\n{3,}", "\n\n", text)
         return text.strip()
@@ -100,20 +107,14 @@ class PDFService:
     ) -> Dict[int, str]:
         """
         Extract text from specified pages of a PDF.
-
-        Args:
-            file_path: Path to the PDF file
-            pages: List of 1-based page numbers. If None, extract all pages.
-            max_chars_per_page: Truncate each page to this many chars (0 = no limit)
-
-        Returns:
-            Dictionary mapping page numbers (1-based) to extracted text.
-            Pages with no usable text are omitted.
+        Includes a 12-second execution limit to prevent worker timeouts.
         """
         result: Dict[int, str] = {}
         reader = PDFService._open_reader(file_path)
         if reader is None:
             return result
+
+        start_time = time.time()
 
         try:
             total_pages = len(reader.pages)
@@ -122,9 +123,13 @@ class PDFService:
                 return result
 
             if pages is None:
-                page_list = list(range(1, total_pages + 1))
+                if total_pages > MAX_DEFAULT_PAGES:
+                    step = total_pages / MAX_DEFAULT_PAGES
+                    page_list = sorted({int(i * step) + 1 for i in range(MAX_DEFAULT_PAGES)})
+                    logger.info("PDF has %s pages; sampling %s pages.", total_pages, len(page_list))
+                else:
+                    page_list = list(range(1, total_pages + 1))
             else:
-                # Unique, valid, sorted 1-based pages
                 page_list = sorted({
                     int(p) for p in pages
                     if isinstance(p, (int, float, str))
@@ -133,8 +138,16 @@ class PDFService:
                 })
 
             for page_num in page_list:
+                # Time limit guard: Stop if extraction takes longer than 12 seconds
+                if time.time() - start_time > MAX_EXTRACTION_TIME_SEC:
+                    logger.warning(
+                        "PDF text extraction deadline reached (%.1fs) for %s. Stopping early at page %s.",
+                        MAX_EXTRACTION_TIME_SEC, file_path, page_num
+                    )
+                    break
+
                 try:
-                    page = reader.pages[page_num - 1]  # 0-based index
+                    page = reader.pages[page_num - 1]
                     raw = page.extract_text() or ""
                     text = PDFService._clean_text(raw)
                     if not text:
@@ -164,10 +177,7 @@ class PDFService:
 
     @staticmethod
     def get_pages_for_range(file_path: str, start: int, end: int) -> List[int]:
-        """
-        Get a list of page numbers within an inclusive range.
-        Swapped start/end are normalized. Out-of-bounds values are clamped.
-        """
+        """Get a list of page numbers within an inclusive range."""
         total = PDFService.get_page_count(file_path)
         if total <= 0:
             return []
@@ -178,7 +188,6 @@ class PDFService:
         except (TypeError, ValueError):
             return []
 
-        # Allow user to put higher number in "from"
         if start > end:
             start, end = end, start
 
@@ -210,21 +219,11 @@ class PDFService:
 
     @staticmethod
     def parse_specific_pages(pages_str: str, max_page: Optional[int] = None) -> List[int]:
-        """
-        Parse page numbers from a user string.
-
-        Supports:
-          - "3, 7, 12"
-          - "5-10"
-          - mixed: "1, 3-5, 8, 12-15"
-
-        If max_page is given, pages above it are dropped.
-        """
+        """Parse page numbers from a user string (e.g., '1, 3-5, 8')."""
         if not pages_str or not str(pages_str).strip():
             return []
 
         pages = set()
-        # Split on comma or whitespace
         tokens = re.split(r"[,\s]+", str(pages_str).strip())
 
         for token in tokens:
@@ -232,7 +231,6 @@ class PDFService:
                 continue
             token = token.strip()
 
-            # Range: 5-10 or 5–10 (en-dash)
             m = re.fullmatch(r"(\d+)\s*[-–—]\s*(\d+)", token)
             if m:
                 a, b = int(m.group(1)), int(m.group(2))
@@ -243,7 +241,6 @@ class PDFService:
                         pages.add(n)
                 continue
 
-            # Single page
             if token.isdigit():
                 n = int(token)
                 if n >= 1 and (max_page is None or n <= max_page):
@@ -261,13 +258,7 @@ class PDFService:
 
     @staticmethod
     def is_scanned_pdf(file_path: str, sample_pages: int = 3, min_chars: int = 50) -> bool:
-        """
-        Heuristic: True if sampled pages have almost no extractable text
-        (typical of image-only / scanned PDFs).
-
-        Returns True also if the file cannot be read (safer default for callers
-        that want to warn the user).
-        """
+        """Heuristic: True if sampled pages have almost no extractable text."""
         reader = PDFService._open_reader(file_path)
         if reader is None:
             return True
@@ -289,7 +280,6 @@ class PDFService:
                 except Exception as e:
                     logger.debug("is_scanned_pdf page %s error: %s", i + 1, e)
 
-            # If none of the sampled pages had real text → likely scanned
             return text_found == 0
         except Exception as e:
             logger.warning("is_scanned_pdf failed for %s: %s", file_path, e)
@@ -297,9 +287,7 @@ class PDFService:
 
     @staticmethod
     def get_text_stats(file_path: str, pages: Optional[List[int]] = None) -> dict:
-        """
-        Lightweight stats for UI / capacity checks without building huge strings twice.
-        """
+        """Lightweight stats for capacity checks."""
         extracted = PDFService.extract_text_from_pages(file_path, pages)
         char_count = sum(len(t) for t in extracted.values())
         word_count = sum(len(re.findall(r"[A-Za-z0-9]{2,}", t)) for t in extracted.values())
