@@ -3,126 +3,129 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign Up - PDF to Exam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0b0d17">
+    <title>Create Account - Examgen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/design-system.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+        .auth-wrapper {
             min-height: 100vh;
+            min-height: 100dvh;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: var(--space-5);
+            background: var(--bg-primary);
         }
-        .signup-card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 20px;
-            padding: 40px;
+        .auth-card {
             width: 100%;
-            max-width: 500px;
+            max-width: 440px;
+            animation: fadeSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .signup-header { text-align: center; margin-bottom: 30px; }
-        .signup-header .icon { font-size: 3rem; margin-bottom: 10px; }
-        .signup-header h2 { color: #fff; font-size: 1.5rem; }
-        .signup-header p { color: #9999b8; font-size: 0.9rem; margin-top: 5px; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .form-group { margin-bottom: 18px; }
-        .form-group label {
-            display: block; color: #b8b8d4; font-size: 0.85rem;
-            margin-bottom: 6px; font-weight: 500;
+        .auth-header {
+            text-align: center;
+            margin-bottom: var(--space-8);
         }
-        .form-group input {
-            width: 100%; padding: 12px 14px;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 10px; color: #fff; font-size: 0.95rem;
-            outline: none; transition: border-color 0.3s;
+        .auth-logo {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto var(--space-4);
+            background: linear-gradient(135deg, var(--accent-primary), #7c5cfc);
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
         }
-        .form-group input:focus { border-color: #f093fb; }
-        .form-group input::placeholder { color: #666; }
-        .form-group .field-error {
-            color: #ff4757; font-size: 0.8rem; margin-top: 4px;
+        .auth-header h2 {
+            font-size: var(--text-2xl);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: var(--space-1);
         }
-        .btn-signup {
-            width: 100%; padding: 14px;
-            background: linear-gradient(135deg, #f093fb, #f5576c);
-            color: #fff; border: none; border-radius: 10px;
-            font-size: 1.1rem; font-weight: 600; cursor: pointer;
-            transition: all 0.3s;
+        .auth-header p {
+            color: var(--text-tertiary);
+            font-size: var(--text-sm);
         }
-        .btn-signup:hover { opacity: 0.9; }
-        .btn-signup:disabled { opacity: 0.5; cursor: not-allowed; }
-        .error-msg {
-            background: rgba(255,71,87,0.15); border: 1px solid rgba(255,71,87,0.3);
-            color: #ff4757; padding: 12px; border-radius: 8px;
-            margin-bottom: 20px; font-size: 0.85rem;
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-4);
         }
-        .links {
-            text-align: center; margin-top: 20px;
+        .auth-footer {
+            text-align: center;
+            margin-top: var(--space-6);
+            color: var(--text-tertiary);
+            font-size: var(--text-sm);
         }
-        .links a {
-            color: #f093fb; text-decoration: none; font-size: 0.9rem; margin: 0 10px;
+        @media (max-width: 480px) {
+            .form-row { grid-template-columns: 1fr; }
+            .auth-card { padding: 0; }
         }
-        .links a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
-    <div class="signup-card">
-        <div class="signup-header">
-            <div class="icon">📝</div>
-            <h2>Create Account</h2>
-            <p>Join to access your examinations</p>
-        </div>
+    <div class="auth-wrapper">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="auth-logo">🎓</div>
+                <h2>Create Account</h2>
+                <p>Join to access your examinations</p>
+            </div>
 
-        <div id="error-container" class="error-msg" style="display:none;"></div>
-
-        {% if form.errors %}
-        <div class="error-msg">
-            {% for field, errors in form.errors.items %}
-                {% for error in errors %}
-                <div>{{ error }}</div>
+            {% if form.errors %}
+            <div class="alert alert-error">
+                {% for field, errors in form.errors.items %}
+                    {% for error in errors %}<div>{{ error }}</div>{% endfor %}
                 {% endfor %}
-            {% endfor %}
-        </div>
-        {% endif %}
+            </div>
+            {% endif %}
 
-        <form id="signup-form" method="post" action="{% url 'designer:signup' %}">
-            {% csrf_token %}
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="first_name">First Name</label>
-                    <input type="text" id="first_name" name="first_name" placeholder="First name" required value="{{ form.first_name.value|default:'' }}">
+            <div id="error-container" class="alert alert-error" style="display:none;"></div>
+
+            <form id="signup-form" method="post" action="{% url 'designer:signup' %}">
+                {% csrf_token %}
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="first_name">First Name</label>
+                        <input type="text" id="first_name" name="first_name" class="form-control" placeholder="John" required value="{{ form.first_name.value|default:'' }}" autocomplete="given-name">
+                    </div>
+                    <div class="form-group">
+                        <label for="last_name">Last Name</label>
+                        <input type="text" id="last_name" name="last_name" class="form-control" placeholder="Doe" required value="{{ form.last_name.value|default:'' }}" autocomplete="family-name">
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label for="last_name">Last Name</label>
-                    <input type="text" id="last_name" name="last_name" placeholder="Last name" required value="{{ form.last_name.value|default:'' }}">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" class="form-control" placeholder="johndoe" required value="{{ form.username.value|default:'' }}" autocomplete="username">
                 </div>
-            </div>
-            <div class="form-group">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" placeholder="Choose a username" required value="{{ form.username.value|default:'' }}">
-            </div>
-            <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" placeholder="Your email address" required value="{{ form.email.value|default:'' }}">
-            </div>
-            <div class="form-group">
-                <label for="password1">Password</label>
-                <input type="password" id="password1" name="password1" placeholder="Create a password" required>
-            </div>
-            <div class="form-group">
-                <label for="password2">Confirm Password</label>
-                <input type="password" id="password2" name="password2" placeholder="Confirm password" required>
-            </div>
-            <button type="submit" class="btn-signup" id="btn-submit">Create Account</button>
-        </form>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" class="form-control" placeholder="john@example.com" required value="{{ form.email.value|default:'' }}" autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="password1">Password</label>
+                    <input type="password" id="password1" name="password1" class="form-control" placeholder="Min 8 characters" required autocomplete="new-password">
+                    <div class="form-hint">Use 8+ characters with a mix of letters, numbers & symbols.</div>
+                </div>
+                <div class="form-group">
+                    <label for="password2">Confirm Password</label>
+                    <input type="password" id="password2" name="password2" class="form-control" placeholder="Re-enter password" required autocomplete="new-password">
+                </div>
+                <button type="submit" class="btn btn-primary btn-full btn-lg" id="btn-submit">
+                    <span id="btn-text">Create Account</span>
+                    <span id="btn-loading" style="display:none;">Creating...</span>
+                </button>
+            </form>
 
-        <div class="links">
-            <a href="{% url 'designer:user_login' %}">Already have an account? Login</a>
-            <a href="{% url 'designer:home' %}">← Home</a>
+            <div class="auth-footer">
+                Already have an account? <a href="{% url 'designer:user_login' %}" class="link">Sign in</a>
+            </div>
+            <div class="auth-footer" style="margin-top: var(--space-3);">
+                <a href="{% url 'designer:home' %}" class="link" style="color: var(--text-tertiary);">← Back to Home</a>
+            </div>
         </div>
     </div>
 
@@ -131,41 +134,30 @@
             e.preventDefault();
             const form = this;
             const btn = document.getElementById('btn-submit');
+            const btnText = document.getElementById('btn-text');
+            const btnLoading = document.getElementById('btn-loading');
             const errorContainer = document.getElementById('error-container');
             btn.disabled = true;
-            btn.textContent = 'Creating account...';
+            btnText.style.display = 'none';
+            btnLoading.style.display = 'inline';
             errorContainer.style.display = 'none';
 
-            fetch(form.action, {
-                method: 'POST',
-                body: new FormData(form),
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
+            fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' }})
             .then(r => r.json())
             .then(data => {
-                if (data.success) {
-                    window.location.href = data.redirect;
-                } else {
-                    let errorHtml = '';
-                    if (data.errors) {
-                        for (const [field, errs] of Object.entries(data.errors)) {
-                            errs.forEach(e => { errorHtml += '<div>' + e + '</div>'; });
-                        }
-                    } else {
-                        errorHtml = 'Registration failed.';
-                    }
-                    errorContainer.innerHTML = errorHtml;
+                if (data.success) { window.location.href = data.redirect; }
+                else {
+                    let html = '';
+                    if (data.errors) { for (const [f, errs] of Object.entries(data.errors)) errs.forEach(e => html += '<div>' + e + '</div>'); }
+                    else html = 'Registration failed.';
+                    errorContainer.innerHTML = html;
                     errorContainer.style.display = 'block';
                     btn.disabled = false;
-                    btn.textContent = 'Create Account';
+                    btnText.style.display = 'inline';
+                    btnLoading.style.display = 'none';
                 }
             })
-            .catch(() => {
-                errorContainer.textContent = 'Network error.';
-                errorContainer.style.display = 'block';
-                btn.disabled = false;
-                btn.textContent = 'Create Account';
-            });
+            .catch(() => { errorContainer.textContent = 'Network error.'; errorContainer.style.display = 'block'; btn.disabled = false; btnText.style.display = 'inline'; btnLoading.style.display = 'none'; });
         });
     </script>
 </body>

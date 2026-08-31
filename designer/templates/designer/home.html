@@ -3,186 +3,488 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF to Exam - Transform Documents into Examinations</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0a0f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Examgen — Intelligent Examination Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        * {
+        *, *::before, *::after {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
+
+        html {
+            scroll-behavior: smooth;
+            -webkit-text-size-adjust: 100%;
+        }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             min-height: 100vh;
+            min-height: 100dvh;
+            background: #0a0a0f;
+            color: #fff;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+
+        /* === Glassmorphism Navigation === */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
             display: flex;
-            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            background: rgba(10, 10, 15, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            z-index: 100;
+            animation: navSlideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes navSlideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .navbar-brand .brand-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 8px;
+            display: flex;
             align-items: center;
             justify-content: center;
-            color: #fff;
+            font-size: 1rem;
         }
-        .container {
-            text-align: center;
-            max-width: 900px;
-            padding: 40px 20px;
-        }
-        .logo-icon {
-            font-size: 80px;
-            margin-bottom: 20px;
-            animation: float 3s ease-in-out infinite;
-        }
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-        h1 {
-            font-size: 3.5rem;
-            font-weight: 800;
-            margin-bottom: 10px;
-            background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+
+        .navbar-brand span {
+            background: linear-gradient(90deg, #667eea, #764ba2);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
-        .subtitle {
-            font-size: 1.3rem;
-            color: #b8b8d4;
-            margin-bottom: 50px;
-            line-height: 1.6;
-        }
-        .buttons {
+
+        .nav-status {
             display: flex;
-            gap: 30px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 60px;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.78rem;
+            color: rgba(255, 255, 255, 0.5);
         }
-        .btn-main {
-            padding: 25px 60px;
-            font-size: 1.3rem;
-            font-weight: 700;
-            border: none;
-            border-radius: 16px;
+
+        .nav-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #2ed573;
+            animation: dotPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes dotPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* === Animated Background === */
+        .bg-mesh {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse at 20% 50%, rgba(102, 126, 234, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(118, 75, 162, 0.10) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(255, 100, 150, 0.06) 0%, transparent 50%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: 0;
+            pointer-events: none;
+            will-change: transform;
+        }
+
+        .orb-1 {
+            width: 350px; height: 350px;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.3), transparent 70%);
+            top: -120px; left: -120px;
+            animation: orb1 20s ease-in-out infinite;
+        }
+
+        .orb-2 {
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(245, 87, 108, 0.25), transparent 70%);
+            bottom: -100px; right: -100px;
+            animation: orb2 25s ease-in-out infinite;
+        }
+
+        .orb-3 {
+            width: 200px; height: 200px;
+            background: radial-gradient(circle, rgba(118, 75, 162, 0.2), transparent 70%);
+            top: 40%; left: 60%;
+            animation: orb3 30s ease-in-out infinite;
+        }
+
+        @keyframes orb1 {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(40px, 30px); }
+        }
+        @keyframes orb2 {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-30px, -40px); }
+        }
+        @keyframes orb3 {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-20px, 25px); }
+        }
+
+        /* === Main Content - Fixed vertical centering === */
+        .main-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: 80px 20px 30px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .container {
+            text-align: center;
+            width: 100%;
+            max-width: 680px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Logo */
+        .logo-wrapper {
+            margin-bottom: 20px;
+            animation: fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.4rem;
+            box-shadow: 0 16px 48px rgba(102, 126, 234, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .logo-icon::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+        }
+
+        /* Title */
+        h1 {
+            font-size: clamp(2rem, 7vw, 3.5rem);
+            font-weight: 900;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #fff 0%, #a8b5ff 40%, #c4a8ff 70%, #64e8ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            animation: fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+        }
+
+        .tagline {
+            font-size: clamp(0.8rem, 2.2vw, 1rem);
+            color: rgba(255, 255, 255, 0.45);
+            margin-bottom: 36px;
+            font-weight: 400;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            animation: fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+        }
+
+        /* Button cards */
+        .buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            width: 100%;
+            max-width: 420px;
+            animation: fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+        }
+
+        .btn-card {
+            padding: 28px 16px;
+            border-radius: 20px;
             cursor: pointer;
             text-decoration: none;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
-            transition: all 0.3s ease;
-            min-width: 220px;
+            gap: 12px;
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s;
+            position: relative;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            -webkit-user-select: none;
+            user-select: none;
+            min-height: 140px;
+            justify-content: center;
         }
-        .btn-admin {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: #fff;
-            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
+
+        .btn-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.03) 50%, transparent 60%);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
         }
-        .btn-admin:hover {
+
+        .btn-card:hover::before {
+            transform: translateX(100%);
+        }
+
+        .btn-card:active {
+            transform: scale(0.96);
+        }
+
+        .btn-card:hover {
             transform: translateY(-4px);
-            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.6);
         }
-        .btn-user {
-            background: linear-gradient(135deg, #f093fb, #f5576c);
-            color: #fff;
-            box-shadow: 0 8px 30px rgba(240, 147, 251, 0.4);
+
+        .btn-admin:hover, .btn-admin:active {
+            border-color: rgba(102, 126, 234, 0.4);
+            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.25);
         }
-        .btn-user:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 40px rgba(240, 147, 251, 0.6);
+
+        .btn-user:hover, .btn-user:active {
+            border-color: rgba(245, 87, 108, 0.4);
+            box-shadow: 0 12px 40px rgba(245, 87, 108, 0.25);
         }
+
         .btn-icon {
-            font-size: 2rem;
+            font-size: 2.2rem;
+            line-height: 1;
         }
-        .btn-label {
-            font-size: 0.85rem;
-            font-weight: 400;
-            opacity: 0.8;
-        }
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 25px;
-            margin-top: 20px;
-        }
-        .feature-card {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 16px;
-            padding: 30px 20px;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-        .feature-card:hover {
-            background: rgba(255,255,255,0.1);
-            transform: translateY(-4px);
-        }
-        .feature-icon {
-            font-size: 2.5rem;
-            margin-bottom: 12px;
-        }
-        .feature-card h3 {
+
+        .btn-title {
             font-size: 1rem;
-            margin-bottom: 8px;
-            color: #e0e0f0;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            color: #fff;
         }
-        .feature-card p {
-            font-size: 0.85rem;
-            color: #9999b8;
-            line-height: 1.5;
+
+        .btn-subtitle {
+            font-size: 0.72rem;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.45);
+            letter-spacing: 0.02em;
+            line-height: 1.3;
         }
+
+        /* Footer */
         .footer {
-            margin-top: 60px;
-            color: #666;
-            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.25);
+            font-size: 0.75rem;
+            font-weight: 400;
+            letter-spacing: 0.02em;
+            padding: 20px 0 8px;
+            width: 100%;
+            animation: fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
         }
+
+        /* === Page Transition Overlay === */
+        .transition-overlay {
+            position: fixed;
+            inset: 0;
+            background: #0a0a0f;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .transition-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        /* ===== DESKTOP ENHANCEMENTS ===== */
+        @media (min-width: 769px) {
+            .navbar { padding: 0 40px; height: 64px; }
+            .navbar-brand { font-size: 1.2rem; }
+            .navbar-brand .brand-icon { width: 36px; height: 36px; font-size: 1.1rem; }
+
+            .container { padding: 0 40px; }
+            .logo-icon {
+                width: 100px; height: 100px;
+                font-size: 3rem; border-radius: 24px;
+                animation: logoPulse 3s ease-in-out infinite;
+            }
+            @keyframes logoPulse {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+            }
+            h1 { margin-bottom: 12px; }
+            .tagline { margin-bottom: 56px; }
+            .buttons { gap: 24px; }
+            .btn-card { padding: 40px 36px; min-height: 170px; border-radius: 24px; }
+            .btn-card:hover { transform: translateY(-8px) scale(1.02); }
+            .btn-icon { font-size: 2.8rem; }
+            .btn-title { font-size: 1.2rem; }
+            .btn-subtitle { font-size: 0.82rem; }
+            .footer { padding: 30px 0 0; font-size: 0.85rem; }
+        }
+
+        /* ===== TABLET ===== */
+        @media (min-width: 481px) and (max-width: 768px) {
+            .btn-card { padding: 32px 20px; min-height: 150px; }
+            .btn-icon { font-size: 2.5rem; }
+            .btn-title { font-size: 1.1rem; }
+        }
+
+        /* ===== SMALL PHONES ===== */
+        @media (max-width: 380px) {
+            .navbar { padding: 0 16px; }
+            .main-wrapper { padding: 70px 14px 20px; }
+            .buttons { gap: 10px; }
+            .btn-card { padding: 22px 12px; min-height: 120px; border-radius: 16px; }
+            .btn-icon { font-size: 1.8rem; }
+            .btn-title { font-size: 0.9rem; }
+            .btn-subtitle { font-size: 0.68rem; }
+            .logo-icon { width: 64px; height: 64px; font-size: 2rem; border-radius: 16px; }
+        }
+
+        /* ===== LANDSCAPE PHONES ===== */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .navbar { height: 48px; }
+            .main-wrapper { 
+                padding-top: 56px; 
+                justify-content: flex-start;
+            }
+            .logo-wrapper { margin-bottom: 10px; }
+            .logo-icon { width: 48px; height: 48px; font-size: 1.5rem; }
+            h1 { font-size: 1.6rem; margin-bottom: 4px; }
+            .tagline { font-size: 0.68rem; margin-bottom: 12px; }
+            .buttons { gap: 8px; }
+            .btn-card { padding: 14px 10px; min-height: 80px; }
+            .btn-icon { font-size: 1.4rem; }
+            .btn-title { font-size: 0.82rem; }
+            .btn-subtitle { display: none; }
+            .footer { padding: 6px 0 4px; font-size: 0.68rem; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="logo-icon">📄</div>
-        <h1>PDF to Exam</h1>
-        <p class="subtitle">
-            Transform your PDF documents into professional MCQ examinations.<br>
-            Upload, generate, configure, and deliver — all in one platform.
-        </p>
-
-        <div class="buttons">
-            <a href="{% url 'designer:admin_login' %}" class="btn-main btn-admin">
-                <span class="btn-icon">🛡️</span>
-                ADMIN
-                <span class="btn-label">Administration Panel</span>
-            </a>
-            <a href="{% url 'designer:user_login' %}" class="btn-main btn-user">
-                <span class="btn-icon">👤</span>
-                USER
-                <span class="btn-label">Take Examinations</span>
-            </a>
+    <!-- Glassmorphism Navigation -->
+    <nav class="navbar">
+        <a href="{% url 'designer:home' %}" class="navbar-brand">
+            <div class="brand-icon"></div>
+            Exam<span>gen</span>
+        </a>
+        <div class="nav-status">
+            <div class="nav-dot"></div>
+            <span>Platform Ready</span>
         </div>
+    </nav>
 
-        <div class="features">
-            <div class="feature-card">
-                <div class="feature-icon">📤</div>
-                <h3>Upload PDFs</h3>
-                <p>Upload multiple PDF documents up to 1 GB combined.</p>
+    <!-- Animated Background -->
+    <div class="bg-mesh"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <!-- Main Content -->
+    <div class="main-wrapper">
+        <div class="container">
+            <div class="logo-wrapper">
+                <div class="logo-icon">📝</div>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">🤖</div>
-                <h3>AI Generation</h3>
-                <p>Automatically generate MCQ questions from your content.</p>
+            
+            <h1>Examgen</h1>
+            <p class="tagline">Intelligent Examination Platform</p>
+
+            <div class="buttons">
+                <a href="{% url 'designer:admin_login' %}" class="btn-card btn-admin" data-transition="admin">
+                    <span class="btn-icon">🛡️</span>
+                    <span class="btn-title">ADMIN</span>
+                    <span class="btn-subtitle">Administration Panel</span>
+                </a>
+                <a href="{% url 'designer:user_login' %}" class="btn-card btn-user" data-transition="user">
+                    <span class="btn-icon"></span>
+                    <span class="btn-title">USER</span>
+                    <span class="btn-subtitle">Take Examinations</span>
+                </a>
             </div>
-            <div class="feature-card">
-                <div class="feature-icon">📝</div>
-                <h3>Configurable Exams</h3>
-                <p>Set timing, grading, randomization, and more.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">📊</div>
-                <h3>Results & Analytics</h3>
-                <p>Track performance with detailed scoring and reports.</p>
-            </div>
+
+            <p class="footer">Examgen &copy; 2026 &mdash; Intelligent Examination Platform</p>
         </div>
-
-        <p class="footer">PDF to Exam &copy; 2024 — Intelligent Examination Platform</p>
     </div>
+
+    <!-- Page Transition Overlay -->
+    <div class="transition-overlay" id="transition-overlay"></div>
+
+    <script>
+        // Smooth transition when clicking ADMIN or USER
+        document.querySelectorAll('[data-transition]').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                var overlay = document.getElementById('transition-overlay');
+                overlay.classList.add('active');
+                setTimeout(function() {
+                    window.location.href = link.href;
+                }, 300);
+            });
+        });
+    </script>
 </body>
 </html>

@@ -1,16 +1,21 @@
 # designer/views/auth_views.py
 
 import json
+import os
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.models import User
 from django.db.models import Count, Avg
 
 from ..forms import UserSignupForm, AdminLoginForm, UserLoginForm
 from ..models import Document, Exam, ExamAttempt
+
+# Check if we're in preview mode
+IS_PREVIEW = os.environ.get("E2B_SANDBOX", "").lower() == "true"
 
 
 def home_view(request):
@@ -18,6 +23,11 @@ def home_view(request):
     return render(request, 'designer/home.html')
 
 
+# Exempt CSRF for login views in preview mode (iframe cookie blocking issue)
+csrf_protect_login = csrf_exempt if IS_PREVIEW else lambda f: f
+
+
+@csrf_protect_login
 def admin_login_view(request):
     """Admin login page."""
     if request.method == 'POST':
@@ -39,6 +49,7 @@ def admin_login_view(request):
     return render(request, 'designer/admin_login.html')
 
 
+@csrf_protect_login
 def user_login_view(request):
     """User login page."""
     if request.method == 'POST':
@@ -60,6 +71,7 @@ def user_login_view(request):
     return render(request, 'designer/user_login.html')
 
 
+@csrf_protect_login
 def user_signup_view(request):
     """User registration page."""
     if request.method == 'POST':

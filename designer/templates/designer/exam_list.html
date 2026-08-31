@@ -3,515 +3,318 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exams - PDF to Exam</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="theme-color" content="#0b0d17">
+    <title>Exams - Examgen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/design-system.css">
     <style>
-        /* ─── Reset ─────────────────────────────── */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #0f1117;
-            color: #e0e0e0;
-            min-height: 100vh;
-        }
-
-        /* ─── Navbar ────────────────────────────── */
-        .navbar {
-            background: rgba(20,20,35,0.95);
-            border-bottom: 1px solid rgba(255,255,255,0.08);
-            padding: 0 30px;
-            height: 60px;
+        .stats-bar {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 100;
+            gap: var(--space-3);
+            flex-wrap: wrap;
+            margin-bottom: var(--space-6);
         }
-        .navbar-brand { color: #fff; font-size: 1.2rem; font-weight: 700; text-decoration: none; }
-        .navbar-brand span { color: #667eea; }
-        .nav-links { display: flex; gap: 8px; }
-        .nav-link {
-            color: #b8b8d4;
-            text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            transition: all 0.2s;
-        }
-        .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
-        .nav-link.active { background: rgba(102,126,234,0.2); color: #667eea; }
-        .nav-link.logout { color: #ff6b6b; }
-
-        /* ─── Layout ────────────────────────────── */
-        .main { padding: 30px; max-width: 1200px; margin: 0 auto; }
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-        }
-        .page-header h1 { font-size: 1.8rem; color: #fff; }
-
-        /* ─── Buttons ───────────────────────────── */
-        .btn-primary {
-            padding: 10px 24px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: #fff;
-            border: none;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-            transition: opacity 0.2s;
-        }
-        .btn-primary:hover { opacity: 0.9; }
-
-        .btn-sm {
-            padding: 6px 14px;
-            border: none;
-            border-radius: 8px;
-            font-size: 0.78rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-decoration: none;
-            display: inline-block;
-            font-family: inherit;
-        }
-        .btn-sm.view      { background: rgba(102,126,234,0.12); color: #667eea; }
-        .btn-sm.view:hover      { background: rgba(102,126,234,0.25); }
-        .btn-sm.edit      { background: rgba(255,165,2,0.12);   color: #ffa502; }
-        .btn-sm.edit:hover      { background: rgba(255,165,2,0.25); }
-        .btn-sm.delete    { background: rgba(255,71,87,0.12);   color: #ff4757; }
-        .btn-sm.delete:hover    { background: rgba(255,71,87,0.25); }
-        .btn-sm.publish   { background: rgba(46,213,115,0.12);  color: #2ed573; }
-        .btn-sm.publish:hover   { background: rgba(46,213,115,0.25); }
-        .btn-sm.archive   { background: rgba(150,150,150,0.12); color: #999; }
-        .btn-sm.archive:hover   { background: rgba(150,150,150,0.25); }
-        .btn-sm.duplicate { background: rgba(116,75,162,0.12);  color: #a78bfa; }
-        .btn-sm.duplicate:hover { background: rgba(116,75,162,0.25); }
-        .btn-sm.preview   { background: rgba(0,206,201,0.12);   color: #00cec9; }
-        .btn-sm.preview:hover   { background: rgba(0,206,201,0.25); }
-
-        /* ─── Stats Bar ─────────────────────────── */
-        .stats-bar { display: flex; gap: 20px; margin-bottom: 25px; flex-wrap: wrap; }
         .stat-pill {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 10px;
-            padding: 10px 18px;
-            font-size: 0.82rem;
-            color: #9999b8;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-full);
+            padding: var(--space-2) var(--space-4);
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
         }
-        .stat-pill span { color: #fff; font-weight: 700; font-size: 1rem; margin-right: 5px; }
+        .stat-pill span {
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-right: var(--space-1);
+        }
 
-        /* ─── Filters ───────────────────────────── */
         .filters {
             display: flex;
-            gap: 10px;
-            margin-bottom: 22px;
+            gap: var(--space-2);
             flex-wrap: wrap;
             align-items: center;
+            margin-bottom: var(--space-6);
         }
         .filter-btn {
-            padding: 7px 18px;
-            border-radius: 20px;
-            border: 1px solid rgba(255,255,255,0.1);
-            background: transparent;
-            color: #9999b8;
-            font-size: 0.82rem;
+            padding: var(--space-2) var(--space-4);
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            border-radius: var(--radius-full);
+            color: var(--text-secondary);
+            font-size: var(--text-sm);
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all var(--transition-fast);
             font-family: inherit;
         }
-        .filter-btn:hover { border-color: #667eea; color: #667eea; }
-        .filter-btn.active { background: rgba(102,126,234,0.2); border-color: #667eea; color: #667eea; }
-
-        .search-box { margin-left: auto; position: relative; }
-        .search-box input {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 10px;
-            padding: 8px 16px 8px 36px;
-            color: #fff;
-            font-size: 0.85rem;
-            width: 220px;
-            outline: none;
-            font-family: inherit;
-        }
-        .search-box input::placeholder { color: #666; }
-        .search-box input:focus { border-color: #667eea; }
-        .search-icon {
-            position: absolute;
-            left: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #666;
-            font-size: 0.85rem;
+        .filter-btn:hover { border-color: var(--border-medium); color: var(--text-primary); }
+        .filter-btn.active {
+            background: var(--accent-primary-soft);
+            border-color: var(--accent-primary-border);
+            color: var(--accent-primary);
         }
 
-        /* ─── Exam Grid ─────────────────────────── */
+        .filter-search {
+            margin-left: auto;
+            max-width: 250px;
+        }
+
         .exam-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 18px;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: var(--space-5);
         }
         .exam-card {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 14px;
-            padding: 22px;
-            transition: all 0.2s;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-2xl);
+            padding: var(--space-6);
+            transition: all var(--transition-base);
         }
-        .exam-card:hover { background: rgba(255,255,255,0.06); }
-        .exam-card h3 { color: #fff; font-size: 1.1rem; margin-bottom: 8px; }
-        .exam-card h3 a { color: #fff; text-decoration: none; }
-        .exam-card h3 a:hover { color: #667eea; }
-        .exam-meta { font-size: 0.82rem; color: #9999b8; line-height: 1.8; }
-        .exam-meta span { margin-right: 14px; }
-        .exam-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-
-        /* ─── Badges ────────────────────────────── */
-        .badge {
-            display: inline-block;
-            padding: 3px 10px;
-            border-radius: 20px;
-            font-size: 0.72rem;
-            font-weight: 600;
+        .exam-card:hover { border-color: var(--border-medium); transform: translateY(-2px); }
+        .exam-card h3 { margin-bottom: var(--space-3); }
+        .exam-card h3 a {
+            color: var(--text-primary);
+            text-decoration: none;
         }
-        .badge-draft       { background: rgba(255,165,2,0.15);   color: #ffa502; }
-        .badge-published   { background: rgba(46,213,115,0.15);  color: #2ed573; }
-        .badge-unpublished { background: rgba(255,71,87,0.15);   color: #ff4757; }
-        .badge-archived    { background: rgba(150,150,150,0.15); color: #999; }
+        .exam-card h3 a:hover { color: var(--accent-primary); }
 
-        /* ─── Empty State ───────────────────────── */
-        .empty-state { text-align: center; padding: 80px 20px; color: #9999b8; }
-        .empty-state .icon { font-size: 3.5rem; margin-bottom: 16px; }
-        .empty-state h3 { font-size: 1.3rem; color: #ccc; margin-bottom: 10px; }
-        .empty-state p { font-size: 0.9rem; margin-bottom: 24px; }
-
-        /* ─── Modal ─────────────────────────────── */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6);
-            z-index: 999;
-            align-items: center;
-            justify-content: center;
+        .exam-meta {
+            font-size: var(--text-sm);
+            color: var(--text-tertiary);
+            line-height: 1.8;
+            margin-bottom: var(--space-4);
         }
-        .modal-overlay.active { display: flex; }
-        .modal {
-            background: #1a1a2e;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 16px;
-            padding: 30px;
-            max-width: 420px;
-            width: 90%;
-        }
-        .modal h3 { color: #fff; margin-bottom: 12px; }
-        .modal p { color: #9999b8; font-size: 0.9rem; margin-bottom: 24px; }
-        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
-        /* ─── Toast ─────────────────────────────── */
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            background: #1a1a2e;
-            border: 1px solid rgba(255,255,255,0.12);
-            border-left: 3px solid #2ed573;
-            border-radius: 10px;
-            padding: 14px 20px;
-            color: #fff;
-            font-size: 0.88rem;
-            z-index: 1000;
-            opacity: 0;
-            transform: translateY(10px);
-            transition: all 0.3s;
-            pointer-events: none;
+        .exam-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2);
         }
-        .toast.show { opacity: 1; transform: translateY(0); }
-        .toast.error { border-left-color: #ff4757; }
 
-        /* ─── Responsive ────────────────────────── */
-        @media (max-width: 600px) {
-            .navbar { padding: 0 16px; }
-            .nav-links { gap: 2px; }
-            .nav-link { padding: 8px 10px; font-size: 0.8rem; }
-            .main { padding: 16px; }
+        @media (max-width: 768px) {
             .exam-grid { grid-template-columns: 1fr; }
-            .page-header { flex-direction: column; gap: 14px; align-items: flex-start; }
-            .filters { gap: 6px; }
-            .search-box { margin-left: 0; width: 100%; }
-            .search-box input { width: 100%; }
-            .stats-bar { gap: 10px; }
+            .filter-search { margin-left: 0; max-width: 100%; width: 100%; }
+        }
+
+        @media (max-width: 480px) {
+            .exam-actions .btn { font-size: var(--text-xs); padding: var(--space-2) var(--space-3); }
         }
     </style>
 </head>
 <body>
-
-<!-- ═══════════ Navbar ═══════════ -->
-<nav class="navbar">
-    <a class="navbar-brand" href="{% url 'designer:home' %}"><span>PDF</span>toExam</a>
-    <div class="nav-links">
-        <a href="{% url 'designer:admin_dashboard' %}" class="nav-link">Dashboard</a>
-        <a href="{% url 'designer:documents' %}" class="nav-link">Documents</a>
-        <a href="{% url 'designer:generate_exam' %}" class="nav-link">Generate</a>
-        <a href="{% url 'designer:exam_list' %}" class="nav-link active">Exams</a>
-        <a href="{% url 'designer:results_dashboard' %}" class="nav-link">Results</a>
-        <a href="{% url 'designer:users_list' %}" class="nav-link">Users</a>
-        <a href="{% url 'designer:logout' %}" class="nav-link logout">Logout</a>
-    </div>
-</nav>
-
-<!-- ═══════════ Main Content ═══════════ -->
-<div class="main">
-
-    <!-- Page Header -->
-    <div class="page-header">
-        <h1>📋 My Exams</h1>
-        <a href="{% url 'designer:generate_exam' %}" class="btn-primary">+ New Exam</a>
-    </div>
-
-    <!-- Stats Bar -->
-    <div class="stats-bar">
-        <div class="stat-pill"><span>{{ exams|length }}</span> Total</div>
-        <div class="stat-pill"><span id="cnt-draft">0</span> Drafts</div>
-        <div class="stat-pill"><span id="cnt-published">0</span> Published</div>
-        <div class="stat-pill"><span id="cnt-archived">0</span> Archived</div>
-    </div>
-
-    <!-- Filters -->
-    <div class="filters">
-        <button class="filter-btn active" onclick="filterExams('all', this)">All</button>
-        <button class="filter-btn" onclick="filterExams('draft', this)">Draft</button>
-        <button class="filter-btn" onclick="filterExams('published', this)">Published</button>
-        <button class="filter-btn" onclick="filterExams('unpublished', this)">Unpublished</button>
-        <button class="filter-btn" onclick="filterExams('archived', this)">Archived</button>
-        <div class="search-box">
-            <span class="search-icon">🔍</span>
-            <input type="text" id="searchInput" placeholder="Search exams..." oninput="searchExams(this.value)">
+    <!-- Navbar -->
+    <nav class="navbar">
+        <a href="{% url 'designer:home' %}" class="navbar-brand">
+            <div class="logo-mark"></div>
+            Exam<span>gen</span>
+        </a>
+        <button class="nav-toggle" onclick="this.classList.toggle('active'); document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu"><span></span><span></span><span></span></button>
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-links">
+            <a href="{% url 'designer:admin_dashboard' %}" class="nav-link">Dashboard</a>
+            <a href="{% url 'designer:documents' %}" class="nav-link">Documents</a>
+            <a href="{% url 'designer:generate_exam' %}" class="nav-link">Generate</a>
+            <a href="{% url 'designer:exam_list' %}" class="nav-link active">Exams</a>
+            <a href="{% url 'designer:results_dashboard' %}" class="nav-link">Results</a>
+            <a href="{% url 'designer:users_list' %}" class="nav-link">Users</a>
+            <a href="{% url 'designer:logout' %}" class="nav-link logout">Logout</a>
         </div>
-    </div>
+    </nav>
 
-    <!-- Exam Grid -->
-    {% if exams %}
-    <div class="exam-grid" id="examGrid">
-        {% for exam in exams %}
-        <div class="exam-card" data-status="{{ exam.status }}" data-title="{{ exam.name|lower }}">
+    <div class="main-content">
+        <!-- Header -->
+        <div class="page-header">
+            <h1>📋 My Exams</h1>
+            <a href="{% url 'designer:generate_exam' %}" class="btn btn-primary">+ New Exam</a>
+        </div>
 
-            <h3>
-                <a href="{% url 'designer:exam_detail' exam.id %}">{{ exam.name }}</a>
-            </h3>
+        <!-- Stats Bar -->
+        <div class="stats-bar">
+            <div class="stat-pill"><span>{{ exams|length }}</span> Total</div>
+            <div class="stat-pill"><span id="cnt-draft">0</span> Drafts</div>
+            <div class="stat-pill"><span id="cnt-published">0</span> Published</div>
+            <div class="stat-pill"><span id="cnt-archived">0</span> Archived</div>
+        </div>
 
-            <div class="exam-meta">
-                <span>📅 {{ exam.created_at|date:"M d, Y" }}</span>
-                <span>❓ {{ exam.question_count }} Questions</span>
-                <br>
-                <span>⏱ {{ exam.duration_minutes }} mins</span>
-                <span>🎯 Pass: {{ exam.pass_mark }}%</span>
-                <br>
-                {% if exam.status == 'draft' %}
-                    <span class="badge badge-draft">Draft</span>
-                {% elif exam.status == 'published' %}
-                    <span class="badge badge-published">Published</span>
-                {% elif exam.status == 'unpublished' %}
-                    <span class="badge badge-unpublished">Unpublished</span>
-                {% elif exam.status == 'archived' %}
-                    <span class="badge badge-archived">Archived</span>
-                {% endif %}
+        <!-- Filters -->
+        <div class="filters">
+            <button class="filter-btn active" onclick="filterExams('all', this)">All</button>
+            <button class="filter-btn" onclick="filterExams('draft', this)">Draft</button>
+            <button class="filter-btn" onclick="filterExams('published', this)">Published</button>
+            <button class="filter-btn" onclick="filterExams('unpublished', this)">Unpublished</button>
+            <button class="filter-btn" onclick="filterExams('archived', this)">Archived</button>
+            <div class="filter-search">
+                <input type="text" class="form-control" id="searchInput" placeholder="Search exams..." oninput="searchExams(this.value)">
             </div>
+        </div>
 
-            <!-- Action Buttons -->
-            <div class="exam-actions">
-                <a href="{% url 'designer:exam_detail' exam.id %}" class="btn-sm view">👁 View</a>
-                <a href="{% url 'designer:exam_edit' exam.id %}" class="btn-sm edit">✏️ Edit</a>
-                <a href="{% url 'designer:exam_preview' exam.id %}" class="btn-sm preview">🔍 Preview</a>
+        <!-- Exam Grid -->
+        {% if exams %}
+        <div class="exam-grid" id="examGrid">
+            {% for exam in exams %}
+            <div class="exam-card" data-status="{{ exam.status }}" data-title="{{ exam.name|lower }}">
+                <h3><a href="{% url 'designer:exam_detail' exam.id %}">{{ exam.name }}</a></h3>
 
-                <button class="btn-sm publish"
-                        onclick="togglePublish('{{ exam.id }}', this)">
-                    {% if exam.status == 'published' %}⏸ Unpublish{% else %}🚀 Publish{% endif %}
-                </button>
+                <div class="exam-meta">
+                    📅 {{ exam.created_at|date:"M d, Y" }} ·
+                    ❓ {{ exam.question_count }} Qs ·
+                    ⏱ {{ exam.duration_minutes }} min ·
+                    🎯 Pass: {{ exam.pass_mark }}%
+                    <br>
+                    {% if exam.status == 'draft' %}
+                        <span class="badge badge-warning">Draft</span>
+                    {% elif exam.status == 'published' %}
+                        <span class="badge badge-success">Published</span>
+                    {% elif exam.status == 'unpublished' %}
+                        <span class="badge badge-info">Unpublished</span>
+                    {% elif exam.status == 'archived' %}
+                        <span class="badge badge-secondary">Archived</span>
+                    {% endif %}
+                </div>
 
-                <button class="btn-sm duplicate"
-                        onclick="duplicateExam('{{ exam.id }}')">📋 Duplicate</button>
-
-                <button class="btn-sm delete"
-                        onclick="confirmDelete('{{ exam.id }}', '{{ exam.name|escapejs }}')">🗑 Delete</button>
+                <div class="exam-actions">
+                    <a href="{% url 'designer:exam_detail' exam.id %}" class="btn btn-outline btn-sm">👁 View</a>
+                    <a href="{% url 'designer:exam_edit' exam.id %}" class="btn btn-outline btn-sm">✏️ Edit</a>
+                    <a href="{% url 'designer:exam_preview' exam.id %}" class="btn btn-outline btn-sm">🔍 Preview</a>
+                    <button class="btn btn-success btn-sm" onclick="togglePublish('{{ exam.id }}', this)">
+                        {% if exam.status == 'published' %}⏸ Unpublish{% else %}🚀 Publish{% endif %}
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="duplicateExam('{{ exam.id }}')">📋 Duplicate</button>
+                    <button class="btn btn-danger btn-sm" onclick="confirmDelete('{{ exam.id }}', '{{ exam.name|escapejs }}')">🗑 Delete</button>
+                </div>
             </div>
-
+            {% endfor %}
         </div>
-        {% endfor %}
+
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📄</div>
+            <h3 class="empty-title">No Exams Yet</h3>
+            <p class="empty-text">Upload a document and generate your first exam.</p>
+            <a href="{% url 'designer:generate_exam' %}" class="btn btn-primary">+ Create Exam</a>
+        </div>
+        {% endif %}
     </div>
 
-    {% else %}
-    <!-- Empty State -->
-    <div class="empty-state">
-        <div class="icon">📄</div>
-        <h3>No Exams Yet</h3>
-        <p>Upload a document and generate your first exam.</p>
-        <a href="{% url 'designer:generate_exam' %}" class="btn-primary">+ Create Exam</a>
-    </div>
-    {% endif %}
-
-</div>
-
-<!-- ═══════════ Delete Modal ═══════════ -->
-<div class="modal-overlay" id="deleteModal">
-    <div class="modal">
-        <h3>🗑 Delete Exam</h3>
-        <p id="deleteModalText">Are you sure you want to delete this exam? This action cannot be undone.</p>
-        <div class="modal-actions">
-            <button class="btn-sm archive" onclick="closeDeleteModal()">Cancel</button>
-            <button class="btn-sm delete" id="confirmDeleteBtn">Yes, Delete</button>
+    <!-- Delete Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <h3>🗑 Delete Exam</h3>
+            <p id="deleteModalText">Are you sure? This action cannot be undone.</p>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeDeleteModal()">Cancel</button>
+                <button class="btn btn-danger" id="confirmDeleteBtn">Yes, Delete</button>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- ═══════════ Toast ═══════════ -->
-<div class="toast" id="toast"></div>
+    <div class="toast-container" id="toast-container"></div>
 
-<!-- ═══════════ Scripts ═══════════ -->
-<script>
-    const CSRF_TOKEN = '{{ csrf_token }}';
-    let pendingDeleteId = null;
+    <script>
+        const CSRF_TOKEN = '{{ csrf_token }}';
+        let pendingDeleteId = null;
 
-    /* ─── Toast Notification ─────────────────── */
-    function showToast(message, isError = false) {
-        const toast = document.getElementById('toast');
-        toast.textContent = message;
-        toast.className = 'toast show' + (isError ? ' error' : '');
-        setTimeout(() => toast.classList.remove('show'), 3000);
-    }
+        function showToast(msg, isError = false) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast' + (isError ? ' error' : '');
+            toast.textContent = msg;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
+        }
 
-    /* ─── Filter by Status ───────────────────── */
-    function filterExams(status, btn) {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.exam-card').forEach(card => {
-            card.style.display = (status === 'all' || card.dataset.status === status) ? '' : 'none';
+        function filterExams(status, btn) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.querySelectorAll('.exam-card').forEach(card => {
+                card.style.display = (status === 'all' || card.dataset.status === status) ? '' : 'none';
+            });
+        }
+
+        function searchExams(query) {
+            const q = query.toLowerCase().trim();
+            document.querySelectorAll('.exam-card').forEach(card => {
+                card.style.display = card.dataset.title.includes(q) ? '' : 'none';
+            });
+        }
+
+        function togglePublish(examId, btn) {
+            btn.disabled = true;
+            fetch(`/exams/${examId}/publish/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) { showToast(data.message); setTimeout(() => location.reload(), 700); }
+                else { showToast(data.error, true); btn.disabled = false; }
+            })
+            .catch(() => { showToast('Network error.', true); btn.disabled = false; });
+        }
+
+        function duplicateExam(examId) {
+            fetch(`/exams/${examId}/duplicate/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) { showToast(data.message); setTimeout(() => location.reload(), 700); }
+                else { showToast(data.error, true); }
+            })
+            .catch(() => showToast('Network error.', true));
+        }
+
+        function confirmDelete(examId, examName) {
+            pendingDeleteId = examId;
+            document.getElementById('deleteModalText').textContent = `Delete "${examName}"? This cannot be undone.`;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+        function closeDeleteModal() {
+            pendingDeleteId = null;
+            document.getElementById('deleteModal').classList.remove('active');
+        }
+
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
+            if (!pendingDeleteId) return;
+            this.disabled = true;
+            fetch(`/exams/${pendingDeleteId}/delete/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF_TOKEN, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.disabled = false;
+                closeDeleteModal();
+                if (data.success) { showToast(data.message); setTimeout(() => location.reload(), 700); }
+                else { showToast(data.error, true); }
+            })
+            .catch(() => { this.disabled = false; showToast('Network error.', true); });
         });
-    }
 
-    /* ─── Search by Name ─────────────────────── */
-    function searchExams(query) {
-        const q = query.toLowerCase().trim();
-        document.querySelectorAll('.exam-card').forEach(card => {
-            card.style.display = card.dataset.title.includes(q) ? '' : 'none';
+        document.getElementById('deleteModal').addEventListener('click', function (e) { if (e.target === this) closeDeleteModal(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDeleteModal(); });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const counts = { draft: 0, published: 0, unpublished: 0, archived: 0 };
+            document.querySelectorAll('.exam-card').forEach(c => { const s = c.dataset.status; if (counts[s] !== undefined) counts[s]++; });
+            document.getElementById('cnt-draft').textContent = counts.draft;
+            document.getElementById('cnt-published').textContent = counts.published;
+            document.getElementById('cnt-archived').textContent = counts.archived;
         });
-    }
-
-    /* ─── Publish / Unpublish ────────────────── */
-    function togglePublish(examId, btn) {
-        btn.disabled = true;
-        fetch(`/exams/${examId}/publish/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': CSRF_TOKEN,
-                'X-Requested-With': 'XMLHttpRequest',
-                'Content-Type': 'application/json',
-            },
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                showToast(data.message);
-                setTimeout(() => location.reload(), 700);
-            } else {
-                showToast(data.error, true);
-                btn.disabled = false;
-            }
-        })
-        .catch(() => { showToast('Network error.', true); btn.disabled = false; });
-    }
-
-    /* ─── Duplicate ──────────────────────────── */
-    function duplicateExam(examId) {
-        fetch(`/exams/${examId}/duplicate/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': CSRF_TOKEN,
-                'X-Requested-With': 'XMLHttpRequest',
-                'Content-Type': 'application/json',
-            },
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                showToast(data.message);
-                setTimeout(() => location.reload(), 700);
-            } else {
-                showToast(data.error, true);
-            }
-        })
-        .catch(() => showToast('Network error.', true));
-    }
-
-    /* ─── Delete Modal ───────────────────────── */
-    function confirmDelete(examId, examName) {
-        pendingDeleteId = examId;
-        document.getElementById('deleteModalText').textContent =
-            `Are you sure you want to delete "${examName}"? This action cannot be undone.`;
-        document.getElementById('deleteModal').classList.add('active');
-    }
-
-    function closeDeleteModal() {
-        pendingDeleteId = null;
-        document.getElementById('deleteModal').classList.remove('active');
-    }
-
-    document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
-        if (!pendingDeleteId) return;
-        this.disabled = true;
-        fetch(`/exams/${pendingDeleteId}/delete/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': CSRF_TOKEN,
-                'X-Requested-With': 'XMLHttpRequest',
-                'Content-Type': 'application/json',
-            },
-        })
-        .then(r => r.json())
-        .then(data => {
-            this.disabled = false;
-            closeDeleteModal();
-            if (data.success) {
-                showToast(data.message);
-                setTimeout(() => location.reload(), 700);
-            } else {
-                showToast(data.error, true);
-            }
-        })
-        .catch(() => { this.disabled = false; showToast('Network error.', true); });
-    });
-
-    /* Close modal on overlay click */
-    document.getElementById('deleteModal').addEventListener('click', function (e) {
-        if (e.target === this) closeDeleteModal();
-    });
-
-    /* Close modal on ESC */
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') closeDeleteModal();
-    });
-
-    /* ─── Count Stats on Load ────────────────── */
-    document.addEventListener('DOMContentLoaded', () => {
-        const counts = { draft: 0, published: 0, unpublished: 0, archived: 0 };
-        document.querySelectorAll('.exam-card').forEach(c => {
-            const s = c.dataset.status;
-            if (counts[s] !== undefined) counts[s]++;
+    </script>
+    <script>
+        document.querySelectorAll('.nav-link').forEach(function(link) {
+            link.addEventListener('click', function() {
+                document.querySelector('.nav-links').classList.remove('open');
+                document.querySelector('.nav-toggle').classList.remove('active');
+            });
         });
-        document.getElementById('cnt-draft').textContent = counts.draft;
-        document.getElementById('cnt-published').textContent = counts.published;
-        document.getElementById('cnt-archived').textContent = counts.archived;
-    });
-</script>
-
+    </script>
 </body>
 </html>
