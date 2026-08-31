@@ -9,6 +9,9 @@ import os
 
 import dj_database_url
 from dotenv import load_dotenv
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 
 # ============================================================
@@ -37,6 +40,27 @@ ALLOWED_HOSTS = [
     ".onrender.com",
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.onrender.com",
+]
+
+
+# ============================================================
+# CLOUDINARY CONFIGURATION
+# ============================================================
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY', ''),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET', ''),
+}
+
+cloudinary.config(
+    cloud_name=CLOUDINARY_STORAGE['CLOUD_NAME'],
+    api_key=CLOUDINARY_STORAGE['API_KEY'],
+    api_secret=CLOUDINARY_STORAGE['API_SECRET'],
+)
+
 
 # ============================================================
 # APPLICATION DEFINITION
@@ -50,6 +74,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
+    # Cloudinary for media storage
+    "cloudinary_storage",
+
     # PDF → Exam application
     "designer",
 ]
@@ -61,6 +88,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -183,10 +211,20 @@ USE_TZ = True
 STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static")
-] if os.path.exists(os.path.join(BASE_DIR, "static")) else []
+    os.path.join(BASE_DIR, "static"),
+]
 
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+# WhiteNoise compression and caching
+WHITENOISE_USE_FINDERS = True
+
+# Production: disable autorefresh, enable compression
+if not DEBUG:
+    WHITENOISE_AUTOREFRESH = False
+    WHITENOISE_KEEP_ONLY_HASHED_FILES = True
+else:
+    WHITENOISE_AUTOREFRESH = True
 
 
 # ============================================================
@@ -196,6 +234,16 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 MEDIA_URL = "/media/"
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
+# Django 4.2+ STORAGES configuration (required for file uploads)
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
 
 
 # ============================================================
