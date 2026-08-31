@@ -15,8 +15,8 @@ from dotenv import load_dotenv
 # ENVIRONMENT
 # ============================================================
 
-# Load .env from project root
 BASE_DIR = Path(__file__).resolve().parent.parent
+
 load_dotenv(BASE_DIR / ".env")
 
 
@@ -29,7 +29,11 @@ SECRET_KEY = os.environ.get(
     "django-insecure-local-development-key"
 )
 
-DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
+DEBUG = os.environ.get(
+    "DEBUG",
+    "True"
+).lower() == "true"
+
 
 ALLOWED_HOSTS = [
     "localhost",
@@ -38,35 +42,53 @@ ALLOWED_HOSTS = [
     ".e2b.app",
 ]
 
+
 CSRF_TRUSTED_ORIGINS = [
     "https://*.e2b.app",
     "https://*.onrender.com",
 ]
 
-# Detect if running in preview/sandbox environment (Arena.e2b.app)
-IS_PREVIEW = os.environ.get("E2B_SANDBOX", "").lower() == "true"
 
-# Always detect HTTPS proxy (safe for all environments)
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Detect E2B / Arena preview environment
+IS_PREVIEW = os.environ.get(
+    "E2B_SANDBOX",
+    ""
+).lower() == "true"
 
-# Cookie settings:
+
+# Render / reverse proxy HTTPS
+SECURE_PROXY_SSL_HEADER = (
+    "HTTP_X_FORWARDED_PROTO",
+    "https",
+)
+
+
+# ============================================================
+# COOKIE SETTINGS
+# ============================================================
+
 if not DEBUG:
-    # Production: full security
-    CSRF_COOKIE_SAMESITE = 'None'
+    # Production
+    CSRF_COOKIE_SAMESITE = "None"
     CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_SAMESITE = 'None'
+
+    SESSION_COOKIE_SAMESITE = "None"
     SESSION_COOKIE_SECURE = True
+
 elif IS_PREVIEW:
-    # Preview in iframe: SameSite=None for cross-origin, but no Secure flag (HTTP in iframe)
-    CSRF_COOKIE_SAMESITE = 'None'
+    # E2B / Arena preview
+    CSRF_COOKIE_SAMESITE = "None"
     CSRF_COOKIE_SECURE = False
-    SESSION_COOKIE_SAMESITE = 'None'
+
+    SESSION_COOKIE_SAMESITE = "None"
     SESSION_COOKIE_SECURE = False
+
 else:
-    # Local dev
-    CSRF_COOKIE_SAMESITE = 'Lax'
+    # Local development
+    CSRF_COOKIE_SAMESITE = "Lax"
     CSRF_COOKIE_SECURE = False
-    SESSION_COOKIE_SAMESITE = 'Lax'
+
+    SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_SECURE = False
 
 
@@ -81,11 +103,13 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
 
-    # Cloudinary Integration (must be placed BEFORE staticfiles)
+    # Cloudinary (MUST be before staticfiles)
     "cloudinary_storage",
+
+    # Django static files
     "django.contrib.staticfiles",
 
-    # PDF → Exam application
+    # Main application
     "designer",
 ]
 
@@ -96,7 +120,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+
+    # WhiteNoise serves static files
     "whitenoise.middleware.WhiteNoiseMiddleware",
+
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -155,7 +182,7 @@ if DATABASE_URL:
         )
     }
 else:
-    # Local development fallback (SQLite)
+    # Local SQLite fallback
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -198,26 +225,47 @@ USE_TZ = True
 
 
 # ============================================================
-# STATIC FILES AND STORAGE CONFIGURATIONS
+# STATIC FILES
 # ============================================================
 
 STATIC_URL = "/static/"
 
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static")
-] if os.path.exists(os.path.join(BASE_DIR, "static")) else []
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_DIR = BASE_DIR / "static"
 
-# Storage engines for Static (WhiteNoise) and Media (Cloudinary)
+if STATIC_DIR.exists():
+    STATICFILES_DIRS = [
+        STATIC_DIR
+    ]
+else:
+    STATICFILES_DIRS = []
+
+
+# ============================================================
+# STORAGE CONFIGURATION
+# ============================================================
+#
+# Uploaded files (media): Cloudinary
+# Static files: Django Standard (Served via WhiteNoise Middleware)
+#
+# ============================================================
+
 STORAGES = {
     "default": {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
+
+
+# ============================================================
+# CLOUDINARY COMPATIBILITY
+# ============================================================
+
+STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
 
 
 # ============================================================
@@ -236,16 +284,18 @@ CLOUDINARY_STORAGE = {
 # ============================================================
 
 MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
+MEDIA_ROOT = BASE_DIR / "media"
 
 
 # ============================================================
 # FILE UPLOAD LIMITS
 # ============================================================
 
-# Maximum upload size: 1 GB
 MAX_UPLOAD_SIZE = 1024 * 1024 * 1024
+
 FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
+
 DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
 
 
@@ -254,7 +304,9 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
 # ============================================================
 
 LOGIN_URL = "/login/"
+
 LOGIN_REDIRECT_URL = "/user-dashboard/"
+
 LOGOUT_REDIRECT_URL = "/"
 
 
@@ -264,16 +316,13 @@ LOGOUT_REDIRECT_URL = "/"
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-AI_MODEL = os.environ.get(
-    "AI_MODEL",
-    "gemini-3.6-flash"
-)
+AI_MODEL = os.environ.get("AI_MODEL", "gemini-3.6-flash")
 
-HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN", "")
+HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN", "")
 
 
 # ============================================================
-# OPENAI (OPTIONAL FALLBACK)
+# OPENAI
 # ============================================================
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
@@ -294,7 +343,7 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = "DENY"
-    
+
     CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
