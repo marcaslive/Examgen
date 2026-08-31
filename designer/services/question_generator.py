@@ -33,17 +33,16 @@ except ImportError:
 # ============================================================
 MIN_QUESTIONS = 10
 MAX_QUESTIONS = 500
-BATCH_LIMIT = 10  # Keep batches small for quick model response
+BATCH_LIMIT = 10
 
-PRIMARY_MODEL = getattr(settings, "AI_MODEL", "gemini-1.5-flash")
+PRIMARY_MODEL = getattr(settings, "AI_MODEL", "gemini-2.0-flash")
 
-# High-quota models ONLY (15 RPM / 500-1500 RPD).
-# Excludes low 20 RPD experimental models that cause 429 blocks.
+# High-quota, officially supported free tier models
 GEMINI_MODELS_CASCADE = [
-    "gemini-1.5-flash",
+    PRIMARY_MODEL,
     "gemini-2.0-flash",
+    "gemini-1.5-flash",
     "gemini-1.5-flash-8b",
-    "gemini-2.0-flash-lite",
 ]
 
 GEMINI_MAX_OUTPUT_TOKENS = 8192
@@ -56,9 +55,10 @@ HTTP_TIMEOUT = 30
 GENERATE_DEADLINE_SEC = 90
 MAX_MODEL_ATTEMPTS = 4
 
-MIN_REQUEST_INTERVAL = 1.5
-MAX_FAIL_STREAK = 5
-RATE_LIMIT_BACKOFF = 10
+# 4.2 seconds between requests = max 14.2 calls/min (strictly under 15 RPM limit)
+MIN_REQUEST_INTERVAL = 4.2
+MAX_FAIL_STREAK = 6
+RATE_LIMIT_BACKOFF = 6
 
 TASK_TIMEOUT = 7200
 REVIEW_TIMEOUT = 7200
@@ -187,12 +187,11 @@ def _remember_not_found_model(model: str) -> None:
 
 
 def _is_model_busy(model: str) -> bool:
-    """Check if model hit rate limits in last 3 minutes."""
     return bool(cache.get(f"qg:busy:model:{model}"))
 
 
-def _mark_model_busy(model: str, seconds: int = 180) -> None:
-    """Temporarily skip rate-limited model so request switches immediately."""
+def _mark_model_busy(model: str, seconds: int = 30) -> None:
+    """Short 30s busy lock so rate limits resolve quickly."""
     logger.warning("Marking model %s as busy for %ss (rate limit hit)", model, seconds)
     cache.set(f"qg:busy:model:{model}", True, timeout=seconds)
 
@@ -261,7 +260,6 @@ class QuestionGenerator:
                 continue
             seen.add(m)
             ordered.append(m)
-        # Fallback to base list if all models cached as busy
         return ordered or [m for m in GEMINI_MODELS_CASCADE if m not in not_found]
 
     def _remaining_timeout(self, deadline: float) -> float:
@@ -349,6 +347,9 @@ class QuestionGenerator:
                 call_timeout = max(5, min(HTTP_TIMEOUT, int(left - 2)))
                 attempts += 1
 
+                if attempts > 1:
+                    time.sleep(0.5)
+
                 # ---------- SDK path ----------
                 if HAS_GEMINI_SDK:
                     try:
@@ -393,7 +394,7 @@ class QuestionGenerator:
                             _remember_not_found_model(model)
                             continue
                         if "429" in err or "resource_exhausted" in low or "quota" in low or "rate" in low:
-                            _mark_model_busy(model, 180)
+                            _mark_model_busy(model, 30)
                             continue
 
                 # ---------- REST path ----------
@@ -432,7 +433,7 @@ class QuestionGenerator:
                         _remember_not_found_model(model)
                         continue
                     elif r.status_code == 429:
-                        _mark_model_busy(model, 180)
+                        _mark_model_busy(model, 30)
                         self.gemini_error = f"REST {model}: 429 Rate Limited"
                         self.last_error = self.gemini_error
                         continue
@@ -853,7 +854,7 @@ class ExamGenerationManager:
                 return (429 if is_rate else 503), {
                     "success": False,
                     "retryable": True,
-                    "retry_after": RATE_LIMIT_BACKOFF if is_rate else 3,
+                    "retry_after": RATE_LIMIT_BACKOFF if is_rate else 4,
                     "error": f"Model busy. Retrying batch ({state['fail_streak']}/{MAX_FAIL_STREAK})",
                     "progress": prog,
                     "total_so_far": len(collected),
