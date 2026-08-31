@@ -29,11 +29,7 @@ SECRET_KEY = os.environ.get(
     "django-insecure-local-development-key"
 )
 
-DEBUG = os.environ.get(
-    "DEBUG",
-    "True"
-).lower() == "true"
-
+DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 
 ALLOWED_HOSTS = [
     "localhost",
@@ -43,28 +39,15 @@ ALLOWED_HOSTS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://*.onrender.com",
-]
-
-
-CSRF_TRUSTED_ORIGINS = [
     "https://*.e2b.app",
     "https://*.onrender.com",
 ]
 
-
 # Detect E2B / Arena preview environment
-IS_PREVIEW = os.environ.get(
-    "E2B_SANDBOX",
-    ""
-).lower() == "true"
-
+IS_PREVIEW = os.environ.get("E2B_SANDBOX", "").lower() == "true"
 
 # Render / reverse proxy HTTPS
-SECURE_PROXY_SSL_HEADER = (
-    "HTTP_X_FORWARDED_PROTO",
-    "https",
-)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # ============================================================
@@ -107,15 +90,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
 
-<<<<<<< HEAD
     # Cloudinary MUST be placed BEFORE staticfiles
     "cloudinary_storage",
-=======
-    # Cloudinary (MUST be before staticfiles)
-    "cloudinary_storage",
-
-    # Django static files
->>>>>>> 8bb89adb5879be42d0aeaf783ff5cd0e4002f3cc
     "django.contrib.staticfiles",
 
     # Main application
@@ -129,14 +105,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-<<<<<<< HEAD
     "whitenoise.middleware.WhiteNoiseMiddleware",
-=======
-
-    # WhiteNoise serves static files
-    "whitenoise.middleware.WhiteNoiseMiddleware",
-
->>>>>>> 8bb89adb5879be42d0aeaf783ff5cd0e4002f3cc
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -245,7 +214,6 @@ STATIC_URL = "/static/"
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-<<<<<<< HEAD
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
@@ -257,25 +225,6 @@ WHITENOISE_MANIFEST_STRICT = False
 
 # ============================================================
 # STORAGE CONFIGURATION (Django 4.2+)
-=======
-STATIC_DIR = BASE_DIR / "static"
-
-if STATIC_DIR.exists():
-    STATICFILES_DIRS = [
-        STATIC_DIR
-    ]
-else:
-    STATICFILES_DIRS = []
-
-
-# ============================================================
-# STORAGE CONFIGURATION
-# ============================================================
-#
-# Uploaded files (media): Cloudinary
-# Static files: Django Standard (Served via WhiteNoise Middleware)
-#
->>>>>>> 8bb89adb5879be42d0aeaf783ff5cd0e4002f3cc
 # ============================================================
 
 STORAGES = {
@@ -283,25 +232,12 @@ STORAGES = {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-<<<<<<< HEAD
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
-# Compatibility setting for django-cloudinary-storage
+# Cloudinary compatibility fallback
 STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
-=======
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-    },
-}
-
-
-# ============================================================
-# CLOUDINARY COMPATIBILITY
-# ============================================================
-
-STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
->>>>>>> 8bb89adb5879be42d0aeaf783ff5cd0e4002f3cc
 
 
 # ============================================================
@@ -328,11 +264,7 @@ MEDIA_ROOT = BASE_DIR / "media"
 # FILE UPLOAD LIMITS
 # ============================================================
 
-<<<<<<< HEAD
 MAX_UPLOAD_SIZE = 1024 * 1024 * 1024  # 1 GB
-=======
-MAX_UPLOAD_SIZE = 1024 * 1024 * 1024
->>>>>>> 8bb89adb5879be42d0aeaf783ff5cd0e4002f3cc
 
 FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
 
@@ -356,18 +288,9 @@ LOGOUT_REDIRECT_URL = "/"
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-<<<<<<< HEAD
-AI_MODEL = os.environ.get(
-    "AI_MODEL",
-    "gemini-3.6-flash"
-)
-
-HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN", "")
-=======
 AI_MODEL = os.environ.get("AI_MODEL", "gemini-3.6-flash")
 
 HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN", "")
->>>>>>> 8bb89adb5879be42d0aeaf783ff5cd0e4002f3cc
 
 
 # ============================================================
