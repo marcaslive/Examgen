@@ -1,3 +1,4 @@
+
 """
 Django settings for core project.
 
@@ -12,7 +13,7 @@ from dotenv import load_dotenv
 
 
 # ============================================================
-# ENVIRONMENT
+# BASE DIRECTORY / ENVIRONMENT
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,7 +27,7 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get(
     "SECRET_KEY",
-    "django-insecure-local-development-key"
+    "django-insecure-local-development-key",
 )
 
 DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
@@ -39,15 +40,18 @@ ALLOWED_HOSTS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://*.e2b.app",
     "https://*.onrender.com",
+    "https://*.e2b.app",
 ]
 
-# Detect E2B / Arena preview environment
-IS_PREVIEW = os.environ.get("E2B_SANDBOX", "").lower() == "true"
+IS_PREVIEW = (
+    os.environ.get("E2B_SANDBOX", "").lower() == "true"
+)
 
-# Render / reverse proxy HTTPS
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_PROXY_SSL_HEADER = (
+    "HTTP_X_FORWARDED_PROTO",
+    "https",
+)
 
 
 # ============================================================
@@ -55,7 +59,6 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # ============================================================
 
 if not DEBUG:
-    # Production
     CSRF_COOKIE_SAMESITE = "None"
     CSRF_COOKIE_SECURE = True
 
@@ -63,7 +66,6 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
 
 elif IS_PREVIEW:
-    # E2B / Arena preview
     CSRF_COOKIE_SAMESITE = "None"
     CSRF_COOKIE_SECURE = False
 
@@ -71,7 +73,6 @@ elif IS_PREVIEW:
     SESSION_COOKIE_SECURE = False
 
 else:
-    # Local development
     CSRF_COOKIE_SAMESITE = "Lax"
     CSRF_COOKIE_SECURE = False
 
@@ -80,7 +81,7 @@ else:
 
 
 # ============================================================
-# APPLICATION DEFINITION
+# APPLICATIONS
 # ============================================================
 
 INSTALLED_APPS = [
@@ -89,12 +90,8 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
-
-    # Cloudinary MUST be placed BEFORE staticfiles
-    "cloudinary_storage",
     "django.contrib.staticfiles",
 
-    # Main application
     "designer",
 ]
 
@@ -105,7 +102,10 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+
+    # WhiteNoise serves static files in production
     "whitenoise.middleware.WhiteNoiseMiddleware",
+
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -164,7 +164,6 @@ if DATABASE_URL:
         )
     }
 else:
-    # Local SQLite fallback
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
@@ -179,16 +178,28 @@ else:
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "UserAttributeSimilarityValidator"
+        ),
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "MinimumLengthValidator"
+        ),
     },
     {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "CommonPasswordValidator"
+        ),
     },
     {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "NumericPasswordValidator"
+        ),
     },
 ]
 
@@ -214,45 +225,83 @@ STATIC_URL = "/static/"
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
 
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
+STATICFILES_DIRS = []
 
-# WhiteNoise Configuration
-WHITENOISE_USE_FINDERS = True
+if (BASE_DIR / "static").exists():
+    STATICFILES_DIRS = [
+        BASE_DIR / "static",
+    ]
+
+
+# ============================================================
+# STATIC STORAGE
+# ============================================================
+
+# Django handles collection of static files.
+# WhiteNoise middleware serves them in production.
+
+STORAGES = {
+    "default": {
+        # Uploaded media is configured below.
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+
+    "staticfiles": {
+        "BACKEND": (
+            "django.contrib.staticfiles.storage."
+            "StaticFilesStorage"
+        ),
+    },
+}
+
+# Compatibility setting
+STATICFILES_STORAGE = (
+    "django.contrib.staticfiles.storage.StaticFilesStorage"
+)
+
+
+# ============================================================
+# WHITENOISE
+# ============================================================
+
+# IMPORTANT:
+# Do NOT use CompressedStaticFilesStorage here.
+#
+# This avoids the missing-file error involving:
+# admin/img/icon-clock.svg
+# admin/css/vendor/select2/LICENSE-SELECT2.md
+
 WHITENOISE_MANIFEST_STRICT = False
 
 
 # ============================================================
-# STORAGE CONFIGURATION (Django 4.2+)
+# CLOUDINARY
 # ============================================================
 
-STORAGES = {
-    "default": {
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
-    },
-}
+CLOUDINARY_CLOUD_NAME = os.environ.get(
+    "CLOUDINARY_CLOUD_NAME",
+    "",
+)
 
-# Cloudinary compatibility fallback
-STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
+CLOUDINARY_API_KEY = os.environ.get(
+    "CLOUDINARY_API_KEY",
+    "",
+)
 
-
-# ============================================================
-# CLOUDINARY CONFIGURATION
-# ============================================================
+CLOUDINARY_API_SECRET = os.environ.get(
+    "CLOUDINARY_API_SECRET",
+    "",
+)
 
 CLOUDINARY_STORAGE = {
-    "CLOUD_NAME": os.environ.get("CLOUDINARY_CLOUD_NAME", ""),
-    "API_KEY": os.environ.get("CLOUDINARY_API_KEY", ""),
-    "API_SECRET": os.environ.get("CLOUDINARY_API_SECRET", ""),
+    "CLOUD_NAME": CLOUDINARY_CLOUD_NAME,
+    "API_KEY": CLOUDINARY_API_KEY,
+    "API_SECRET": CLOUDINARY_API_SECRET,
 }
 
 
 # ============================================================
-# MEDIA / UPLOADED FILES
+# MEDIA FILES
 # ============================================================
 
 MEDIA_URL = "/media/"
@@ -272,7 +321,7 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
 
 
 # ============================================================
-# AUTHENTICATION REDIRECTS
+# AUTHENTICATION
 # ============================================================
 
 LOGIN_URL = "/login/"
@@ -283,21 +332,33 @@ LOGOUT_REDIRECT_URL = "/"
 
 
 # ============================================================
-# AI / GEMINI
+# GEMINI / AI
 # ============================================================
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_API_KEY = os.environ.get(
+    "GEMINI_API_KEY",
+    "",
+)
 
-AI_MODEL = os.environ.get("AI_MODEL", "gemini-3.6-flash")
+AI_MODEL = os.environ.get(
+    "AI_MODEL",
+    "gemini-3.6-flash",
+)
 
-HUGGINGFACE_TOKEN = os.environ.get("HUGGINGFACE_TOKEN", "")
+HUGGINGFACE_TOKEN = os.environ.get(
+    "HUGGINGFACE_TOKEN",
+    "",
+)
 
 
 # ============================================================
 # OPENAI
 # ============================================================
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_API_KEY = os.environ.get(
+    "OPENAI_API_KEY",
+    "",
+)
 
 
 # ============================================================
@@ -312,13 +373,19 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ============================================================
 
 if not DEBUG:
+
     SECURE_BROWSER_XSS_FILTER = True
+
     SECURE_CONTENT_TYPE_NOSNIFF = True
+
     X_FRAME_OPTIONS = "DENY"
 
     CACHES = {
         "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "BACKEND": (
+                "django.core.cache.backends.locmem."
+                "LocMemCache"
+            ),
             "LOCATION": "exam-gen-cache",
         }
     }
