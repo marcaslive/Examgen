@@ -3,10 +3,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
     <meta name="theme-color" content="#0a0a0f">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Examgen — Intelligent Examination Platform. Generate exams, take tests, and review results.">
     <title>Examgen — Intelligent Examination Platform</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,6 +48,8 @@
             align-items: center;
             justify-content: space-between;
             padding: 0 24px;
+            padding-top: env(safe-area-inset-top);
+            height: calc(60px + env(safe-area-inset-top));
             background: rgba(10, 10, 15, 0.7);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
@@ -70,6 +73,12 @@
             font-size: 1.1rem;
         }
 
+        .navbar-brand:focus-visible {
+            outline: 2px solid rgba(102, 126, 234, 0.8);
+            outline-offset: 4px;
+            border-radius: 8px;
+        }
+
         .navbar-brand .brand-icon {
             width: 32px;
             height: 32px;
@@ -79,6 +88,8 @@
             align-items: center;
             justify-content: center;
             font-size: 1rem;
+            line-height: 1;
+            flex-shrink: 0;
         }
 
         .navbar-brand span {
@@ -101,19 +112,21 @@
             height: 8px;
             border-radius: 50%;
             background: #2ed573;
+            box-shadow: 0 0 0 0 rgba(46, 213, 115, 0.5);
             animation: dotPulse 2s ease-in-out infinite;
+            flex-shrink: 0;
         }
 
         @keyframes dotPulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(46, 213, 115, 0.35); }
+            50% { opacity: 0.55; box-shadow: 0 0 0 6px rgba(46, 213, 115, 0); }
         }
 
         /* === Animated Background === */
         .bg-mesh {
             position: fixed;
             inset: 0;
-            background: 
+            background:
                 radial-gradient(ellipse at 20% 50%, rgba(102, 126, 234, 0.12) 0%, transparent 50%),
                 radial-gradient(ellipse at 80% 20%, rgba(118, 75, 162, 0.10) 0%, transparent 50%),
                 radial-gradient(ellipse at 50% 80%, rgba(255, 100, 150, 0.06) 0%, transparent 50%);
@@ -164,7 +177,7 @@
             50% { transform: translate(-20px, 25px); }
         }
 
-        /* === Main Content - Fixed vertical centering === */
+        /* === Main Content === */
         .main-wrapper {
             display: flex;
             flex-direction: column;
@@ -173,6 +186,7 @@
             min-height: 100vh;
             min-height: 100dvh;
             padding: 80px 20px 30px;
+            padding-top: calc(80px + env(safe-area-inset-top));
             position: relative;
             z-index: 1;
         }
@@ -186,7 +200,6 @@
             align-items: center;
         }
 
-        /* Logo */
         .logo-wrapper {
             margin-bottom: 20px;
             animation: fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -207,6 +220,7 @@
             align-items: center;
             justify-content: center;
             font-size: 2.4rem;
+            line-height: 1;
             box-shadow: 0 16px 48px rgba(102, 126, 234, 0.4);
             position: relative;
             overflow: hidden;
@@ -217,9 +231,9 @@
             position: absolute;
             inset: 0;
             background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+            pointer-events: none;
         }
 
-        /* Title */
         h1 {
             font-size: clamp(2rem, 7vw, 3.5rem);
             font-weight: 900;
@@ -243,7 +257,6 @@
             animation: fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
         }
 
-        /* Button cards */
         .buttons {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -258,11 +271,12 @@
             border-radius: 20px;
             cursor: pointer;
             text-decoration: none;
+            color: inherit;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 12px;
-            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s;
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s, border-color 0.25s;
             position: relative;
             overflow: hidden;
             background: rgba(255, 255, 255, 0.04);
@@ -282,28 +296,34 @@
             background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.03) 50%, transparent 60%);
             transform: translateX(-100%);
             transition: transform 0.6s ease;
+            pointer-events: none;
         }
 
         .btn-card:hover::before {
             transform: translateX(100%);
         }
 
+        .btn-card:focus-visible {
+            outline: 2px solid rgba(102, 126, 234, 0.9);
+            outline-offset: 3px;
+        }
+
         .btn-card:active {
             transform: scale(0.96);
         }
 
-        .btn-card:hover {
-            transform: translateY(-4px);
-        }
-
-        .btn-admin:hover, .btn-admin:active {
-            border-color: rgba(102, 126, 234, 0.4);
-            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.25);
-        }
-
-        .btn-user:hover, .btn-user:active {
-            border-color: rgba(245, 87, 108, 0.4);
-            box-shadow: 0 12px 40px rgba(245, 87, 108, 0.25);
+        @media (hover: hover) and (pointer: fine) {
+            .btn-card:hover {
+                transform: translateY(-4px);
+            }
+            .btn-admin:hover {
+                border-color: rgba(102, 126, 234, 0.4);
+                box-shadow: 0 12px 40px rgba(102, 126, 234, 0.25);
+            }
+            .btn-user:hover {
+                border-color: rgba(245, 87, 108, 0.4);
+                box-shadow: 0 12px 40px rgba(245, 87, 108, 0.25);
+            }
         }
 
         .btn-icon {
@@ -326,7 +346,6 @@
             line-height: 1.3;
         }
 
-        /* Footer */
         .footer {
             color: rgba(255, 255, 255, 0.25);
             font-size: 0.75rem;
@@ -353,9 +372,9 @@
             pointer-events: all;
         }
 
-        /* ===== DESKTOP ENHANCEMENTS ===== */
+        /* ===== DESKTOP ===== */
         @media (min-width: 769px) {
-            .navbar { padding: 0 40px; height: 64px; }
+            .navbar { padding: 0 40px; height: calc(64px + env(safe-area-inset-top)); }
             .navbar-brand { font-size: 1.2rem; }
             .navbar-brand .brand-icon { width: 36px; height: 36px; font-size: 1.1rem; }
 
@@ -373,7 +392,9 @@
             .tagline { margin-bottom: 56px; }
             .buttons { gap: 24px; }
             .btn-card { padding: 40px 36px; min-height: 170px; border-radius: 24px; }
-            .btn-card:hover { transform: translateY(-8px) scale(1.02); }
+            @media (hover: hover) and (pointer: fine) {
+                .btn-card:hover { transform: translateY(-8px) scale(1.02); }
+            }
             .btn-icon { font-size: 2.8rem; }
             .btn-title { font-size: 1.2rem; }
             .btn-subtitle { font-size: 0.82rem; }
@@ -390,7 +411,7 @@
         /* ===== SMALL PHONES ===== */
         @media (max-width: 380px) {
             .navbar { padding: 0 16px; }
-            .main-wrapper { padding: 70px 14px 20px; }
+            .main-wrapper { padding: 70px 14px 20px; padding-top: calc(70px + env(safe-area-inset-top)); }
             .buttons { gap: 10px; }
             .btn-card { padding: 22px 12px; min-height: 120px; border-radius: 16px; }
             .btn-icon { font-size: 1.8rem; }
@@ -401,9 +422,9 @@
 
         /* ===== LANDSCAPE PHONES ===== */
         @media (max-height: 500px) and (orientation: landscape) {
-            .navbar { height: 48px; }
-            .main-wrapper { 
-                padding-top: 56px; 
+            .navbar { height: calc(48px + env(safe-area-inset-top)); }
+            .main-wrapper {
+                padding-top: calc(56px + env(safe-area-inset-top));
                 justify-content: flex-start;
             }
             .logo-wrapper { margin-bottom: 10px; }
@@ -418,6 +439,28 @@
             .footer { padding: 6px 0 4px; font-size: 0.68rem; }
         }
 
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            html { scroll-behavior: auto; }
+            .navbar,
+            .logo-wrapper,
+            h1,
+            .tagline,
+            .buttons,
+            .footer,
+            .logo-icon,
+            .orb,
+            .nav-dot {
+                animation: none !important;
+            }
+            .btn-card,
+            .btn-card::before,
+            .transition-overlay {
+                transition: none !important;
+            }
+            .orb { opacity: 0.5; }
+        }
+
         /* Scrollbar */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -426,41 +469,47 @@
 </head>
 <body>
     <!-- Glassmorphism Navigation -->
-    <nav class="navbar">
+    <nav class="navbar" aria-label="Primary">
         <a href="{% url 'designer:home' %}" class="navbar-brand">
-            <div class="brand-icon"></div>
+            <div class="brand-icon" aria-hidden="true">📝</div>
             Exam<span>gen</span>
         </a>
-        <div class="nav-status">
-            <div class="nav-dot"></div>
+        <div class="nav-status" title="System status">
+            <div class="nav-dot" aria-hidden="true"></div>
             <span>Platform Ready</span>
         </div>
     </nav>
 
     <!-- Animated Background -->
-    <div class="bg-mesh"></div>
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-    <div class="orb orb-3"></div>
+    <div class="bg-mesh" aria-hidden="true"></div>
+    <div class="orb orb-1" aria-hidden="true"></div>
+    <div class="orb orb-2" aria-hidden="true"></div>
+    <div class="orb orb-3" aria-hidden="true"></div>
 
     <!-- Main Content -->
-    <div class="main-wrapper">
+    <main class="main-wrapper">
         <div class="container">
             <div class="logo-wrapper">
-                <div class="logo-icon">📝</div>
+                <div class="logo-icon" aria-hidden="true">📝</div>
             </div>
-            
+
             <h1>Examgen</h1>
             <p class="tagline">Intelligent Examination Platform</p>
 
-            <div class="buttons">
-                <a href="{% url 'designer:admin_login' %}" class="btn-card btn-admin" data-transition="admin">
-                    <span class="btn-icon">🛡️</span>
+            <div class="buttons" role="navigation" aria-label="Sign in options">
+                <a href="{% url 'designer:admin_login' %}"
+                   class="btn-card btn-admin"
+                   data-transition="admin"
+                   aria-label="Admin login — Administration Panel">
+                    <span class="btn-icon" aria-hidden="true">🛡️</span>
                     <span class="btn-title">ADMIN</span>
                     <span class="btn-subtitle">Administration Panel</span>
                 </a>
-                <a href="{% url 'designer:user_login' %}" class="btn-card btn-user" data-transition="user">
-                    <span class="btn-icon"></span>
+                <a href="{% url 'designer:user_login' %}"
+                   class="btn-card btn-user"
+                   data-transition="user"
+                   aria-label="User login — Take Examinations">
+                    <span class="btn-icon" aria-hidden="true">👤</span>
                     <span class="btn-title">USER</span>
                     <span class="btn-subtitle">Take Examinations</span>
                 </a>
@@ -468,23 +517,60 @@
 
             <p class="footer">Examgen &copy; 2026 &mdash; Intelligent Examination Platform</p>
         </div>
-    </div>
+    </main>
 
     <!-- Page Transition Overlay -->
-    <div class="transition-overlay" id="transition-overlay"></div>
+    <div class="transition-overlay" id="transition-overlay" aria-hidden="true"></div>
 
     <script>
-        // Smooth transition when clicking ADMIN or USER
-        document.querySelectorAll('[data-transition]').forEach(function(link) {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                var overlay = document.getElementById('transition-overlay');
-                overlay.classList.add('active');
-                setTimeout(function() {
-                    window.location.href = link.href;
-                }, 300);
+        (function () {
+            var overlay = document.getElementById('transition-overlay');
+
+            function resetOverlay() {
+                if (overlay) {
+                    overlay.classList.remove('active');
+                    overlay.setAttribute('aria-hidden', 'true');
+                }
+            }
+
+            // Fix: returning via browser back (bfcache) left the screen black
+            window.addEventListener('pageshow', function (e) {
+                resetOverlay();
             });
-        });
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible') resetOverlay();
+            });
+
+            document.querySelectorAll('[data-transition]').forEach(function (link) {
+                link.addEventListener('click', function (e) {
+                    // Allow new-tab / new-window / modified clicks
+                    if (
+                        e.defaultPrevented ||
+                        e.button !== 0 ||
+                        e.metaKey ||
+                        e.ctrlKey ||
+                        e.shiftKey ||
+                        e.altKey
+                    ) {
+                        return;
+                    }
+
+                    e.preventDefault();
+                    if (!overlay) {
+                        window.location.href = link.href;
+                        return;
+                    }
+
+                    overlay.classList.add('active');
+                    overlay.setAttribute('aria-hidden', 'false');
+
+                    var href = link.href;
+                    setTimeout(function () {
+                        window.location.href = href;
+                    }, 300);
+                });
+            });
+        })();
     </script>
 </body>
 </html>

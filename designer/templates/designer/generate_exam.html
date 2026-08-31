@@ -310,6 +310,36 @@
             100% { transform: scale(1.15); opacity: 0; }
         }
 
+        /* Fixed dynamic toast CSS */
+        .toast-container {
+            position: fixed;
+            bottom: var(--space-4, 20px);
+            right: var(--space-4, 20px);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10000;
+        }
+        .toast {
+            min-width: 250px;
+            padding: 12px 20px;
+            background: var(--bg-card, #1e1e2d);
+            color: #fff;
+            border-radius: var(--radius-md, 8px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-size: 14px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            border-left: 4px solid var(--accent-primary, #3b82f6);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast-error { border-left-color: var(--accent-warning, #ef4444); }
+        .toast-success { border-left-color: var(--accent-success, #10b981); }
+
         @media (max-width: 768px) {
             .doc-select-grid { grid-template-columns: 1fr; }
             .count-options { gap: var(--space-1); }
@@ -324,7 +354,8 @@
             <div class="logo-mark"></div>
             Exam<span>gen</span>
         </a>
-        <button class="nav-toggle" onclick="this.classList.toggle('active'); document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu"><span></span><span></span><span></span></button>
+        <!-- FIXED: Navigation toggle syntax -->
+        <button class="nav-toggle" onclick="this.classList.toggle('active'); document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">
             <span></span><span></span><span></span>
         </button>
         <div class="nav-links">
@@ -470,13 +501,13 @@
             </svg>
         </div>
 
-        <p class="loading-label" id="loading-label"><span id="loading-label-text">Preparing document</span><span class="dots"></span></p>
-        <p class="loading-sub" id="loading-sub">Reading your material</p>
+        <p class="loading-label" id="loading-label" aria-live="polite"><span id="loading-label-text">Preparing document</span><span class="dots"></span></p>
+        <p class="loading-sub" id="loading-sub" aria-live="polite">Reading your material</p>
     </div>
 
     <div class="toast-container" id="toast-container"></div>
 
-    <script>
+<script>
 const csrfToken = '{{ csrf_token }}';
 const URL_START  = '{% url "designer:generate_start" %}';
 const URL_BATCH  = '{% url "designer:generate_batch" %}';
@@ -490,11 +521,6 @@ let countdownTimer = null;
 
 /* ==============================================================
    TIME-BASED PROGRESS ENGINE
-   - Estimates total time from question count (~4s per question)
-   - Loader always advances smoothly with real elapsed time
-   - Shows dynamic "Time left" countdown
-   - Reaches 95% at estimated end; holds there until server done
-   - When server says done → snaps to 100% + success animation
    ============================================================== */
 const P = {
     startTs: 0,
@@ -505,9 +531,9 @@ const P = {
     timerEl: null,
     subEl: null,
     labelEl: null,
-    stage: 'prep',       // 'prep' | 'generating' | 'finishing' | 'done'
-    prepEndSec: 4,       // reserve first ~4s for "Preparing"
-    initEndSec: 8,       // then ~4s for "Initializing"
+    stage: 'prep',
+    prepEndSec: 4,
+    initEndSec: 8,
     frozen: false,
     donePct: 0,
     completed: false,
@@ -527,9 +553,8 @@ function paintRing(v) {
 }
 
 function estimateSecondsFor(nQuestions) {
-    // Empirical: ~3.9s per question incl. retries, minimum 25s.
     const perQ = 4.0;
-    const overhead = 8; // prep + init + finish
+    const overhead = 8;
     return Math.max(25, Math.ceil(nQuestions * perQ + overhead));
 }
 
@@ -573,7 +598,6 @@ function tickTime() {
     const elapsed = (Date.now() - P.startTs) / 1000;
     const total = P.estimatedTotalSec;
 
-    // Stage transitions based on elapsed time
     if (P.stage === 'prep' && elapsed >= P.prepEndSec) {
         P.stage = 'initializing';
         setLabelText('Initializing questions');
@@ -585,15 +609,12 @@ function tickTime() {
         setSubText('Crafting each question with care');
     }
 
-    // Compute progress purely from time (0..95%)
     let pct = (elapsed / total) * 95;
     if (pct > 95) pct = 95;
 
-    // Once server signals done → we'll finish separately
     if (pct > P.donePct) P.donePct = pct;
     paintRing(P.donePct);
 
-    // Time left readout
     const remaining = Math.max(0, total - elapsed);
     if (remaining > 0) {
         setTimerText(`Time left: ${fmtTime(remaining)}`);
@@ -601,7 +622,6 @@ function tickTime() {
         setTimerText('Wrapping up…');
     }
 
-    // If we've been at 95% for a while and still not done, show subtle "finalizing"
     if (elapsed >= total && P.stage !== 'finishing') {
         P.stage = 'finishing';
         setLabelText('Finalizing');
@@ -610,15 +630,13 @@ function tickTime() {
 }
 
 function completeProgress(nQuestions) {
-    // Snap to 100% smoothly and swap to success check
     if (P.timer) { clearInterval(P.timer); P.timer = null; }
     P.completed = true;
     P.stage = 'done';
 
-    // Race any remaining bar to 100
     const start = P.donePct;
     const startTs = Date.now();
-    const duration = 500; // ms
+    const duration = 500;
     const anim = setInterval(() => {
         const t = Math.min(1, (Date.now() - startTs) / duration);
         const v = start + (100 - start) * t;
@@ -626,7 +644,6 @@ function completeProgress(nQuestions) {
         setTimerText('Complete');
         if (t >= 1) {
             clearInterval(anim);
-            // Show success check animation
             const ring = document.getElementById('progress-circle-wrap');
             const check = document.getElementById('success-check');
             if (ring) ring.style.display = 'none';
@@ -648,7 +665,6 @@ function showLoading(show) {
     if (!show) {
         stopProgress();
         paintRing(0);
-        // reset success check for next time
         const check = document.getElementById('success-check');
         const ring = document.getElementById('progress-circle-wrap');
         if (check) check.classList.remove('show');
@@ -666,12 +682,10 @@ async function safeFetchJson(url, options = {}) {
         try {
             return { status: res.status, ok: res.ok, data: JSON.parse(text) };
         } catch (e) {
-            return { status: res.status, ok: false,
-                data: { success: false, error: `Server error (${res.status}).` } };
+            return { status: res.status, ok: false, data: { success: false, error: `Server error (${res.status}).` } };
         }
     } catch (netErr) {
-        return { status: 0, ok: false,
-            data: { success: false, error: "Network error. Please try again." } };
+        return { status: 0, ok: false, data: { success: false, error: "Network error. Please try again." } };
     }
 }
 
@@ -679,6 +693,7 @@ async function safeFetchJson(url, options = {}) {
 function refreshQuota() {
     safeFetchJson(URL_QUOTA, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(({ data }) => {
+            if(!data) return;
             const rpdEl = document.getElementById('q-rpd');
             const rpmEl = document.getElementById('q-rpm');
             const stEl  = document.getElementById('q-status');
@@ -746,16 +761,19 @@ document.querySelectorAll('.doc-checkbox').forEach(cb => {
         this.closest('.doc-select-item').classList.toggle('selected', this.checked);
     });
 });
+
 function selectAll() {
     document.querySelectorAll('.doc-checkbox').forEach(cb => {
         cb.checked = true; cb.closest('.doc-select-item').classList.add('selected');
     });
 }
+
 function deselectAll() {
     document.querySelectorAll('.doc-checkbox').forEach(cb => {
         cb.checked = false; cb.closest('.doc-select-item').classList.remove('selected');
     });
 }
+
 document.querySelectorAll('input[name="source_type"]').forEach(r => {
     r.addEventListener('change', function() {
         document.querySelectorAll('.page-options').forEach(el => el.classList.remove('active'));
@@ -763,6 +781,7 @@ document.querySelectorAll('input[name="source_type"]').forEach(r => {
         if (opt) opt.classList.add('active');
     });
 });
+
 document.querySelectorAll('.count-btn').forEach(btn => {
     btn.addEventListener('click', function() {
         document.querySelectorAll('.count-btn').forEach(b => b.classList.remove('selected'));
@@ -776,19 +795,24 @@ document.querySelectorAll('.count-btn').forEach(btn => {
 function buildPayload() {
     const checked = document.querySelectorAll('.doc-checkbox:checked');
     if (!checked.length) { showToast('Please select at least one document.', 'error'); return null; }
+    
     const sourceType = document.querySelector('input[name="source_type"]:checked').value;
     let choice = selectedCount;
     let custom = null;
+    
     if (choice === 'custom') {
         custom = parseInt(document.getElementById('custom-count').value || '10', 10);
         if (custom < 10 || custom > 500) { showToast('Custom count must be between 10 and 500.', 'error'); return null; }
     }
+    
     const payload = {
         documents: Array.from(checked).map(cb => cb.value),
         source_type: sourceType,
         question_count_choice: choice,
     };
+    
     if (custom !== null) payload.custom_count = custom;
+    
     if (sourceType === 'range') {
         payload.page_from = document.getElementById('page-from').value;
         payload.page_to = document.getElementById('page-to').value;
@@ -805,6 +829,25 @@ function getRequestedCount() {
         return parseInt(document.getElementById('custom-count').value || '10', 10);
     }
     return parseInt(selectedCount, 10);
+}
+
+/* =============== Dynamic Toasts =============== */
+function showToast(msg, type) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    
+    const t = document.createElement('div');
+    // type is usually 'error' or 'success'
+    t.className = `toast toast-${type} show`;
+    t.textContent = msg;
+    
+    container.appendChild(t);
+    
+    // Auto-remove after 5.5s
+    setTimeout(() => {
+        t.classList.remove('show');
+        setTimeout(() => t.remove(), 300); // Wait for transition
+    }, 5500);
 }
 
 /* =============== Generate Flow =============== */
@@ -843,11 +886,9 @@ async function onGenerateClick() {
         return;
     }
 
-    // Adjust time estimate if server returned exact plan (min×0.35 ≈ your ~4s/Q)
     const plan = data.plan || {};
     if (plan.total_questions) {
         window._currentTarget = plan.total_questions;
-        // Update estimated total based on actual plan
         P.estimatedTotalSec = estimateSecondsFor(plan.total_questions);
     }
 
@@ -872,7 +913,6 @@ async function runBatches() {
             body: '{}',
         });
 
-        // DONE
         if (data.success && data.done) {
             const nQ = data.count || window._currentTarget || 0;
             completeProgress(nQ);
@@ -880,33 +920,26 @@ async function runBatches() {
             return;
         }
 
-        // RETRYABLE — silently wait, keep bar moving via time engine
         if (!data.success && data.retryable) {
             exhaustedRetries++;
             const wait = Math.max(1, Number(data.retry_after) || 3);
 
-            // Only stop if we've been retrying way too long (models truly exhausted)
             if (exhaustedRetries > 15) {
                 endLoader();
                 const retryMin = Math.ceil((data.retry_after || 3600) / 60);
-                showToast(
-                    `All AI models are busy right now. Please come back in about ${retryMin} minute${retryMin > 1 ? 's' : ''}.`,
-                    'error'
-                );
+                showToast(`All AI models are busy right now. Please come back in about ${retryMin} minute${retryMin > 1 ? 's' : ''}.`, 'error');
                 return;
             }
             await new Promise(r => setTimeout(r, wait * 1000));
             continue;
         }
 
-        // NEXT BATCH ready
         if (data.success && !data.done) {
-            exhaustedRetries = 0; // reset on progress
+            exhaustedRetries = 0;
             await new Promise(r => setTimeout(r, 300));
             continue;
         }
 
-        // HARD FAIL — all models exhausted / other unrecoverable error
         endLoader();
         const msg = (data.error || '').toLowerCase();
         if (msg.includes('quota') || msg.includes('rate') || msg.includes('exhausted') || msg.includes('limit')) {
@@ -918,21 +951,15 @@ async function runBatches() {
     }
 }
 
-function showToast(msg, type) {
-    const t = document.getElementById('toast');
-    if (!t) return;
-    t.textContent = msg;
-    t.className = 'toast ' + type + ' show';
-    setTimeout(() => t.classList.remove('show'), 5500);
-}
+// Mobile Nav Toggle Logic
+document.querySelectorAll('.nav-link').forEach(function(link) {
+    link.addEventListener('click', function() {
+        const navLinks = document.querySelector('.nav-links');
+        const navToggle = document.querySelector('.nav-toggle');
+        if(navLinks) navLinks.classList.remove('open');
+        if(navToggle) navToggle.classList.remove('active');
+    });
+});
 </script>
-    <script>
-        document.querySelectorAll('.nav-link').forEach(function(link) {
-            link.addEventListener('click', function() {
-                document.querySelector('.nav-links').classList.remove('open');
-                document.querySelector('.nav-toggle').classList.remove('active');
-            });
-        });
-    </script>
 </body>
 </html>

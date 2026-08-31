@@ -23,6 +23,8 @@
             margin-bottom: var(--space-3);
             font-size: var(--text-sm);
             color: var(--text-secondary);
+            gap: var(--space-3);
+            flex-wrap: wrap;
         }
 
         .upload-zone {
@@ -35,9 +37,17 @@
             transition: all var(--transition-base);
             margin-bottom: var(--space-6);
         }
-        .upload-zone:hover, .upload-zone.dragover {
+        .upload-zone:hover,
+        .upload-zone.dragover,
+        .upload-zone:focus-visible {
             border-color: var(--accent-primary);
             background: var(--accent-primary-soft);
+            outline: none;
+        }
+        .upload-zone.disabled {
+            opacity: 0.55;
+            pointer-events: none;
+            cursor: not-allowed;
         }
         .upload-zone .icon { font-size: 3rem; margin-bottom: var(--space-3); }
         .upload-zone h3 { font-size: var(--text-lg); margin-bottom: var(--space-2); }
@@ -59,6 +69,7 @@
             display: flex;
             gap: var(--space-3);
             margin-bottom: var(--space-6);
+            flex-wrap: wrap;
         }
 
         .doc-grid {
@@ -115,9 +126,55 @@
             background: var(--accent-warning-soft);
             color: var(--accent-warning);
         }
-        .badge-status.badge-error {
-            background: var(--accent-danger-soft);
-            color: var(--accent-danger);
+        .badge-status.badge-error,
+        .badge-status.badge-failed {
+            background: var(--accent-danger-soft, rgba(239, 68, 68, 0.15));
+            color: var(--accent-danger, #ef4444);
+        }
+
+        /* Toasts */
+        .toast-container {
+            position: fixed;
+            bottom: var(--space-4, 20px);
+            right: var(--space-4, 20px);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10000;
+            max-width: min(420px, calc(100vw - 32px));
+        }
+        .toast {
+            min-width: 240px;
+            padding: 12px 18px;
+            background: var(--bg-card, #1e1e2d);
+            color: var(--text-primary, #fff);
+            border-radius: var(--radius-md, 8px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+            font-size: 14px;
+            line-height: 1.4;
+            opacity: 0;
+            transform: translateY(16px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            border-left: 4px solid var(--accent-primary, #3b82f6);
+            word-break: break-word;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast.success,
+        .toast.toast-success {
+            border-left-color: var(--accent-success, #10b981);
+        }
+        .toast.error,
+        .toast.toast-error {
+            border-left-color: var(--accent-danger, #ef4444);
+        }
+
+        .empty-state {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: var(--space-10, 3rem) var(--space-4, 1rem);
         }
 
         @media (max-width: 768px) {
@@ -133,7 +190,9 @@
             <div class="logo-mark"></div>
             Exam<span>gen</span>
         </a>
-        <button class="nav-toggle" onclick="this.classList.toggle('active'); document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu"><span></span><span></span><span></span></button>
+        <button class="nav-toggle"
+                onclick="this.classList.toggle('active'); document.querySelector('.nav-links').classList.toggle('open')"
+                aria-label="Menu">
             <span></span><span></span><span></span>
         </button>
         <div class="nav-links">
@@ -158,20 +217,30 @@
                 <span>{{ remaining_size_display }} remaining</span>
             </div>
             <div class="progress-track">
-                <div class="progress-fill {% if usage_percent > 80 %}warning{% endif %}" style="width: {{ usage_percent }}%"></div>
+                <div class="progress-fill {% if usage_percent > 80 %}warning{% endif %}"
+                     style="width: {{ usage_percent|default:0 }}%"></div>
             </div>
         </div>
 
         <!-- Upload Zone -->
-        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+        <div class="upload-zone"
+             id="upload-zone"
+             role="button"
+             tabindex="0"
+             aria-label="Upload documents"
+             onclick="document.getElementById('file-input').click()"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('file-input').click();}">
             <div class="icon">📤</div>
             <h3>Drop files here or click to upload</h3>
             <p>PDF, DOCX, DOC, PPTX, PPT, ODT, TXT — Max 1 GB total</p>
-            <input type="file" id="file-input" multiple accept=".pdf,.docx,.doc,.pptx,.ppt,.odt,.txt">
+            <input type="file"
+                   id="file-input"
+                   multiple
+                   accept=".pdf,.docx,.doc,.pptx,.ppt,.odt,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">
         </div>
 
         <!-- Upload Progress -->
-        <div class="upload-progress" id="upload-progress">
+        <div class="upload-progress" id="upload-progress" aria-live="polite">
             <span id="upload-status">Uploading...</span>
             <div class="progress-track">
                 <div class="progress-fill" id="progress-fill"></div>
@@ -180,28 +249,39 @@
 
         <!-- Actions -->
         <div class="actions-bar">
-            <button class="btn btn-danger" onclick="resetUploads()">🗑️ Reset All</button>
+            <button type="button" class="btn btn-danger" id="btn-reset" onclick="resetUploads()">
+                🗑️ Reset All
+            </button>
         </div>
 
         <!-- Document Grid -->
         <div class="doc-grid" id="doc-grid">
             {% for doc in documents %}
-            <div class="doc-card" id="doc-{{ doc.id }}">
+            <div class="doc-card" id="doc-{{ doc.id }}" data-doc-id="{{ doc.id }}">
                 <div class="doc-icon">
-                    {% if doc.file_type == 'pdf' %}📕{% elif doc.file_type == 'docx' or doc.file_type == 'doc' %}📘{% else %}📄{% endif %}
+                    {% if doc.file_type == 'pdf' %}📕
+                    {% elif doc.file_type == 'docx' or doc.file_type == 'doc' %}📘
+                    {% elif doc.file_type == 'pptx' or doc.file_type == 'ppt' %}📙
+                    {% else %}📄{% endif %}
                 </div>
                 <div class="doc-info">
                     <div class="doc-name">{{ doc.original_filename }}</div>
                     <div class="doc-meta">
                         <span>{{ doc.file_size_display }}</span>
-                        <span>{{ doc.page_count }} pages</span>
-                        <span class="badge-status badge-{{ doc.status }}">{{ doc.get_status_display }}</span>
+                        <span>{{ doc.page_count }} page{{ doc.page_count|pluralize }}</span>
+                        <span class="badge-status badge-{{ doc.status|default:'ready' }}">
+                            {{ doc.get_status_display }}
+                        </span>
                     </div>
                     <div class="doc-meta">
                         <span>{{ doc.uploaded_at|date:"M d, Y H:i" }}</span>
                     </div>
                     <div class="doc-actions">
-                        <button class="btn btn-danger btn-sm" onclick="deleteDoc('{{ doc.id }}')">Delete</button>
+                        <button type="button"
+                                class="btn btn-danger btn-sm"
+                                onclick="deleteDoc('{{ doc.id }}')">
+                            Delete
+                        </button>
                     </div>
                 </div>
             </div>
@@ -209,152 +289,314 @@
             <div class="empty-state" id="empty-state">
                 <div class="empty-icon">📂</div>
                 <h3 class="empty-title">No Documents</h3>
-                <p class="empty-text">No documents uploaded yet. Upload your first PDF!</p>
+                <p class="empty-text">No documents uploaded yet. Upload your first file!</p>
             </div>
             {% endfor %}
         </div>
     </div>
 
-    <div class="toast-container" id="toast-container"></div>
+    <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
-    <script>
-        const csrfToken = '{{ csrf_token }}';
+<script>
+const csrfToken = '{{ csrf_token }}';
+const URL_UPLOAD = '{% url "designer:document_upload" %}';
+const URL_RESET  = '{% url "designer:documents_reset" %}';
 
-        // Drag and drop
-        const zone = document.getElementById('upload-zone');
-        ['dragenter', 'dragover'].forEach(evt => {
-            zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.add('dragover'); });
-        });
-        ['dragleave', 'drop'].forEach(evt => {
-            zone.addEventListener(evt, e => { e.preventDefault(); zone.classList.remove('dragover'); });
-        });
-        zone.addEventListener('drop', e => {
-            const files = e.dataTransfer.files;
-            if (files.length) uploadFiles(files);
-        });
+/* Pass a valid UUID string so Django's URL reverse matcher succeeds */
+const DUMMY_UUID = '00000000-0000-0000-0000-000000000000';
+const URL_DELETE_TEMPLATE = '{% url "designer:document_delete" doc_id="00000000-0000-0000-0000-000000000000" %}'.replace(DUMMY_UUID, '__ID__');
 
-        document.getElementById('file-input').addEventListener('change', function() {
-            if (this.files.length) uploadFiles(this.files);
-            this.value = '';
-        });
+const ALLOWED_EXT = new Set(['pdf', 'docx', 'doc', 'pptx', 'ppt', 'odt', 'txt']);
+const MAX_FILE_BYTES = 100 * 1024 * 1024; // 100 MB per file
 
-        function uploadFiles(files) {
-            const formData = new FormData();
-            for (let f of files) {
-                formData.append('files', f);
+let isUploading = false;
+
+/* ---------- helpers ---------- */
+function showToast(msg, type) {
+    const container = document.getElementById('toast-container');
+    if (!container || !msg) return;
+
+    const toast = document.createElement('div');
+    toast.className = 'toast ' + (type || 'success');
+    toast.textContent = msg;
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => toast.classList.add('show'));
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+function setUploading(active) {
+    isUploading = active;
+    const zone = document.getElementById('upload-zone');
+    const input = document.getElementById('file-input');
+    const resetBtn = document.getElementById('btn-reset');
+    if (zone) zone.classList.toggle('disabled', active);
+    if (input) input.disabled = active;
+    if (resetBtn) resetBtn.disabled = active;
+}
+
+function deleteUrlFor(docId) {
+    return URL_DELETE_TEMPLATE.replace('__ID__', encodeURIComponent(docId));
+}
+
+function ensureEmptyState() {
+    const grid = document.getElementById('doc-grid');
+    if (!grid) return;
+    const hasCard = grid.querySelector('.doc-card');
+    let empty = document.getElementById('empty-state');
+    if (!hasCard && !empty) {
+        empty = document.createElement('div');
+        empty.className = 'empty-state';
+        empty.id = 'empty-state';
+        empty.innerHTML = `
+            <div class="empty-icon">📂</div>
+            <h3 class="empty-title">No Documents</h3>
+            <p class="empty-text">No documents uploaded yet. Upload your first file!</p>
+        `;
+        grid.appendChild(empty);
+    } else if (hasCard && empty) {
+        empty.remove();
+    }
+}
+
+function filterFiles(fileList) {
+    const accepted = [];
+    const rejected = [];
+
+    Array.from(fileList || []).forEach((f) => {
+        const name = (f.name || '').trim();
+        const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+        if (!ALLOWED_EXT.has(ext)) {
+            rejected.push(`“${name || 'file'}” — type not allowed`);
+            return;
+        }
+        if (f.size <= 0) {
+            rejected.push(`“${name}” — empty file`);
+            return;
+        }
+        if (f.size > MAX_FILE_BYTES) {
+            rejected.push(`“${name}” — too large (max 100 MB each)`);
+            return;
+        }
+        accepted.push(f);
+    });
+
+    return { accepted, rejected };
+}
+
+/* ---------- drag & drop ---------- */
+const zone = document.getElementById('upload-zone');
+if (zone) {
+    ['dragenter', 'dragover'].forEach((evt) => {
+        zone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!isUploading) zone.classList.add('dragover');
+        });
+    });
+    ['dragleave', 'drop'].forEach((evt) => {
+        zone.addEventListener(evt, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            zone.classList.remove('dragover');
+        });
+    });
+    zone.addEventListener('drop', (e) => {
+        if (isUploading) return;
+        const files = e.dataTransfer && e.dataTransfer.files;
+        if (files && files.length) uploadFiles(files);
+    });
+}
+
+const fileInput = document.getElementById('file-input');
+if (fileInput) {
+    fileInput.addEventListener('change', function () {
+        if (this.files && this.files.length) uploadFiles(this.files);
+        this.value = '';
+    });
+}
+
+/* ---------- upload ---------- */
+function uploadFiles(files) {
+    if (isUploading) return;
+
+    const { accepted, rejected } = filterFiles(files);
+
+    if (rejected.length) {
+        showToast(rejected.slice(0, 3).join('; ') + (rejected.length > 3 ? '…' : ''), 'error');
+    }
+    if (!accepted.length) return;
+
+    const formData = new FormData();
+    accepted.forEach((f) => formData.append('files', f));
+
+    const progressEl = document.getElementById('upload-progress');
+    const fillEl = document.getElementById('progress-fill');
+    const statusEl = document.getElementById('upload-status');
+
+    progressEl.style.display = 'block';
+    fillEl.style.width = '0%';
+    statusEl.textContent = `Uploading ${accepted.length} file${accepted.length > 1 ? 's' : ''}…`;
+    setUploading(true);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', URL_UPLOAD);
+    xhr.setRequestHeader('X-CSRFToken', csrfToken);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+
+    xhr.upload.onprogress = function (e) {
+        if (!e.lengthComputable) return;
+        const pct = Math.min(99, Math.round((e.loaded / e.total) * 100));
+        fillEl.style.width = pct + '%';
+        statusEl.textContent = `Uploading… ${pct}%`;
+    };
+
+    xhr.onload = function () {
+        setUploading(false);
+        progressEl.style.display = 'none';
+        fillEl.style.width = '0%';
+
+        let data;
+        try {
+            data = JSON.parse(xhr.responseText || '{}');
+        } catch (e) {
+            showToast(`Upload failed (HTTP ${xhr.status || 'error'}).`, 'error');
+            return;
+        }
+
+        const errors = Array.isArray(data.errors) ? data.errors : [];
+        const hasErrors = errors.length > 0;
+        const ok = !!(data.success || data.uploaded || data.created || (data.count && data.count > 0));
+
+        if (ok) {
+            if (data.message) showToast(data.message, 'success');
+            if (hasErrors) showToast(errors.join('; '), 'error');
+            setTimeout(() => location.reload(), hasErrors ? 1200 : 700);
+            return;
+        }
+
+        const errMsg = data.error || (hasErrors ? errors.join('; ') : 'Upload failed.');
+        showToast(errMsg, 'error');
+    };
+
+    xhr.onerror = function () {
+        setUploading(false);
+        progressEl.style.display = 'none';
+        showToast('Network error during upload.', 'error');
+    };
+
+    xhr.onabort = function () {
+        setUploading(false);
+        progressEl.style.display = 'none';
+        showToast('Upload cancelled.', 'error');
+    };
+
+    xhr.send(formData);
+}
+
+/* ---------- delete one ---------- */
+function deleteDoc(docId) {
+    if (isUploading) {
+        showToast('Please wait for the upload to finish.', 'error');
+        return;
+    }
+    if (!docId) return;
+    if (!confirm('Delete this document?')) return;
+
+    const btn = document.querySelector(`#doc-${CSS.escape(String(docId))} button`);
+    if (btn) btn.disabled = true;
+
+    fetch(deleteUrlFor(docId), {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+        },
+    })
+        .then(async (r) => {
+            let data = {};
+            try { data = await r.json(); } catch (e) { /* ignore */ }
+            if (!r.ok && !data.error) {
+                data.success = false;
+                data.error = `Delete failed (HTTP ${r.status}).`;
             }
-
-            const progressEl = document.getElementById('upload-progress');
-            const fillEl = document.getElementById('progress-fill');
-            const statusEl = document.getElementById('upload-status');
-
-            progressEl.style.display = 'block';
-            fillEl.style.width = '0%';
-            statusEl.textContent = 'Uploading...';
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '{% url "designer:document_upload" %}');
-            xhr.setRequestHeader('X-CSRFToken', csrfToken);
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-
-            xhr.upload.onprogress = function(e) {
-                if (e.lengthComputable) {
-                    const pct = Math.round((e.loaded / e.total) * 100);
-                    fillEl.style.width = pct + '%';
-                    statusEl.textContent = 'Uploading... ' + pct + '%';
-                }
-            };
-
-            xhr.onload = function() {
-                try {
-                    const data = JSON.parse(xhr.responseText);
-                    if (data.success) {
-                        // Show detailed errors if any
-                        if (data.errors && data.errors.length > 0) {
-                            showToast(data.errors.join('; '), 'error');
-                        } else {
-                            showToast(data.message, 'success');
-                            setTimeout(() => location.reload(), 800);
-                        }
-                    } else {
-                        showToast(data.error, 'error');
-                    }
-                } catch(e) {
-                    showToast('Upload failed.', 'error');
-                }
-                progressEl.style.display = 'none';
-            };
-
-            xhr.onerror = function() {
-                showToast('Network error.', 'error');
-                progressEl.style.display = 'none';
-            };
-
-            xhr.send(formData);
-        }
-
-        function deleteDoc(docId) {
-            if (!confirm('Delete this document?')) return;
-            fetch('/documents/' + docId + '/delete/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest',
-                }
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    const el = document.getElementById('doc-' + docId);
-                    if (el) el.remove();
-                    showToast(data.message, 'success');
-                    setTimeout(() => location.reload(), 500);
-                } else {
-                    showToast(data.error, 'error');
-                }
-            });
-        }
-
-        function resetUploads() {
-            if (!confirm('Delete ALL uploaded documents? This cannot be undone.')) return;
-            fetch('{% url "designer:documents_reset" %}', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest',
-                }
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    showToast(data.message, 'success');
-                    setTimeout(() => location.reload(), 500);
-                } else {
-                    showToast(data.error, 'error');
-                }
-            });
-        }
-
-        function showToast(msg, type) {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = 'toast ' + type;
-            toast.textContent = msg;
-            container.appendChild(toast);
-            setTimeout(() => toast.classList.add('show'), 10);
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
-            }, 3500);
-        }
-    </script>
-    <script>
-        document.querySelectorAll('.nav-link').forEach(function(link) {
-            link.addEventListener('click', function() {
-                document.querySelector('.nav-links').classList.remove('open');
-                document.querySelector('.nav-toggle').classList.remove('active');
-            });
+            return data;
+        })
+        .then((data) => {
+            if (data.success) {
+                const el = document.getElementById('doc-' + docId);
+                if (el) el.remove();
+                ensureEmptyState();
+                showToast(data.message || 'Document deleted.', 'success');
+                setTimeout(() => location.reload(), 600);
+            } else {
+                if (btn) btn.disabled = false;
+                showToast(data.error || 'Could not delete document.', 'error');
+            }
+        })
+        .catch(() => {
+            if (btn) btn.disabled = false;
+            showToast('Network error while deleting.', 'error');
         });
-    </script>
+}
+
+/* ---------- reset all ---------- */
+function resetUploads() {
+    if (isUploading) {
+        showToast('Please wait for the upload to finish.', 'error');
+        return;
+    }
+    if (!confirm('Delete ALL uploaded documents? This cannot be undone.')) return;
+
+    const resetBtn = document.getElementById('btn-reset');
+    if (resetBtn) resetBtn.disabled = true;
+
+    fetch(URL_RESET, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+        },
+    })
+        .then(async (r) => {
+            let data = {};
+            try { data = await r.json(); } catch (e) { /* ignore */ }
+            if (!r.ok && !data.error) {
+                data.success = false;
+                data.error = `Reset failed (HTTP ${r.status}).`;
+            }
+            return data;
+        })
+        .then((data) => {
+            if (data.success) {
+                showToast(data.message || 'All documents removed.', 'success');
+                setTimeout(() => location.reload(), 500);
+            } else {
+                if (resetBtn) resetBtn.disabled = false;
+                showToast(data.error || 'Could not reset documents.', 'error');
+            }
+        })
+        .catch(() => {
+            if (resetBtn) resetBtn.disabled = false;
+            showToast('Network error while resetting.', 'error');
+        });
+}
+
+/* ---------- mobile nav ---------- */
+document.querySelectorAll('.nav-link').forEach((link) => {
+    link.addEventListener('click', () => {
+        const navLinks = document.querySelector('.nav-links');
+        const navToggle = document.querySelector('.nav-toggle');
+        if (navLinks) navLinks.classList.remove('open');
+        if (navToggle) navToggle.classList.remove('active');
+    });
+});
+</script>
 </body>
 </html>
