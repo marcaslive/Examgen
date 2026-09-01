@@ -24,9 +24,8 @@ logger = logging.getLogger(__name__)
 # ============================================================
 MIN_QUESTIONS = 10
 MAX_QUESTIONS = 500
-BATCH_LIMIT = 15  # 15 is the sweet spot. 25 causes AI JSON cutoff failures.
+BATCH_LIMIT = 15
 
-# Strict 4.2s pacing ensures we stay under Google's 15 RPM Free Tier limit.
 MIN_REQUEST_INTERVAL = 4.2
 MAX_FAIL_STREAK = 8
 RATE_LIMIT_BACKOFF = 10
@@ -60,13 +59,13 @@ GEMINI_NOT_FOUND_CACHE_KEY = "qg:gemini:not_found_models"
 # GEMINI MODEL PRIORITY:
 # 1. Gemini 3.5 Flash Lite (Primary)
 # 2. Gemini 3.1 Flash Lite (Backup)
-# 3. Older Flash models (Safety net)
+# 3. Gemini 2.0 Flash / 1.5 Flash (Safety nets)
 # ==============================================================
 PRIMARY_MODEL = getattr(settings, "AI_MODEL", "gemini-3.5-flash-lite")
 
 _KNOWN_GOOD = [
-    "gemini-3.5-flash-lite",  # Your Primary
-    "gemini-3.1-flash-lite",  # Your Backup
+    "gemini-3.5-flash-lite",  # Primary
+    "gemini-3.1-flash-lite",  # Backup
     "gemini-2.0-flash",       # Fallback 1
     "gemini-1.5-flash",       # Fallback 2
     "gemini-1.5-flash-8b",    # Fallback 3
@@ -76,7 +75,6 @@ GEMINI_MODELS_CASCADE = []
 for m in [PRIMARY_MODEL] + _KNOWN_GOOD:
     if not m or m in GEMINI_MODELS_CASCADE:
         continue
-    # Skip only known-bad placeholders, NOT 3.5 / 3.1
     if m.lower() in ("gemini-3.6-flash",):
         continue
     GEMINI_MODELS_CASCADE.append(m)
@@ -240,10 +238,8 @@ class QuestionGenerator:
         return str(text or "")
 
     def _models(self) -> List[str]:
-        """Return models to try in priority order, skipping dead/busy ones."""
         not_found = _get_not_found_models()
         out = [m for m in GEMINI_MODELS_CASCADE if m not in not_found and not _is_model_busy(m)]
-        # If all valid models are marked busy, return the cascade anyway
         return out if out else [m for m in GEMINI_MODELS_CASCADE if m not in not_found]
 
     def generate(
@@ -278,10 +274,8 @@ class QuestionGenerator:
         deadline = time.time() + GENERATE_DEADLINE_SEC
         attempts = 0
 
-        # PURE REST IMPLEMENTATION - Bypasses buggy SDKs, logs exact errors
         for key in self.gemini_keys:
-            if not str(key).startswith("AIza"):
-                self.last_error = "API key must start with AIza"
+            if not key:
                 continue
 
             for model in self._models():
@@ -334,15 +328,15 @@ class QuestionGenerator:
 
                     elif r.status_code == 404:
                         _remember_not_found_model(model)
-                        self.gemini_error = f"{model} does not exist. Trying next model..."
+                        self.gemini_error = f"{model} does not exist"
                         logger.warning(f"Model {model} returned 404, switching to next")
                         continue
 
                     elif r.status_code == 429:
                         _mark_model_busy(model, 15)
-                        self.gemini_error = f"{model}: Rate limit. Trying next model..."
+                        self.gemini_error = f"{model}: Rate limit hit"
                         logger.warning(f"Model {model} rate limited, switching to next")
-                        continue
+                        break  # Try next key or backup model
 
                     else:
                         try:
@@ -350,11 +344,6 @@ class QuestionGenerator:
                         except Exception:
                             msg = r.text
                         self.gemini_error = f"HTTP {r.status_code}: {_short_err(msg)}"
-                        
-                        # Hard stop if API key is fully invalid
-                        if "API key not valid" in msg or "API_KEY_INVALID" in msg:
-                            self.last_error = "Google API Key is invalid. Please regenerate."
-                            return []
 
                 except requests.exceptions.Timeout:
                     self.gemini_error = f"{model}: Connection timed out"
@@ -684,7 +673,6 @@ class ExamGenerationManager:
                     state["collected"] = collected
                     return 200, cls._finish_generation(request, state)
 
-                # Return what we have if we repeatedly fail but have enough to be useful
                 if state["fail_streak"] >= 3 and len(collected) >= max(5, int(target * 0.6)):
                     state["collected"] = collected
                     state["target_count"] = len(collected)
