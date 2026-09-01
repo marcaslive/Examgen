@@ -66,14 +66,19 @@
             grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
             gap: var(--space-5);
         }
+        
         .exam-card {
             background: var(--bg-card);
             border: 1px solid var(--border-subtle);
             border-radius: var(--radius-2xl);
             padding: var(--space-6);
             transition: all var(--transition-base);
+            cursor: pointer; /* Suggests the whole card is clickable */
         }
-        .exam-card:hover { border-color: var(--border-medium); transform: translateY(-2px); }
+        .exam-card:hover { 
+            border-color: var(--border-medium); 
+            transform: translateY(-2px); 
+        }
         .exam-card h3 { margin-bottom: var(--space-3); }
         .exam-card h3 a {
             color: var(--text-primary);
@@ -94,6 +99,37 @@
             gap: var(--space-2);
         }
 
+        /* Safely Hide Modal By Default */
+        .modal-overlay {
+            display: none; /* Forced hidden on load */
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal {
+            background: var(--bg-card, #111);
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid var(--border-subtle, #333);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+        .modal h3 { margin-top: 0; margin-bottom: 12px; }
+        .modal-actions {
+            margin-top: 24px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+
         @media (max-width: 768px) {
             .exam-grid { grid-template-columns: 1fr; }
             .filter-search { margin-left: 0; max-width: 100%; width: 100%; }
@@ -111,7 +147,7 @@
             <div class="logo-mark"></div>
             Exam<span>gen</span>
         </a>
-        <button class="nav-toggle" onclick="this.classList.toggle('active'); document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu"><span></span><span></span><span></span></button>
+        <button class="nav-toggle" onclick="this.classList.toggle('active'); document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">
             <span></span><span></span><span></span>
         </button>
         <div class="nav-links">
@@ -156,7 +192,8 @@
         {% if exams %}
         <div class="exam-grid" id="examGrid">
             {% for exam in exams %}
-            <div class="exam-card" data-status="{{ exam.status }}" data-title="{{ exam.name|lower }}">
+            <!-- Added onclick to entire card to redirect securely -->
+            <div class="exam-card" data-status="{{ exam.status }}" data-title="{{ exam.name|lower }}" onclick="handleCardClick(event, '{% url 'designer:exam_detail' exam.id %}')">
                 <h3><a href="{% url 'designer:exam_detail' exam.id %}">{{ exam.name }}</a></h3>
 
                 <div class="exam-meta">
@@ -218,6 +255,15 @@
         const CSRF_TOKEN = '{{ csrf_token }}';
         let pendingDeleteId = null;
 
+        // Redirect when clicking anywhere on card (except buttons/links)
+        function handleCardClick(event, url) {
+            // Prevent redirect if the user clicked an action button or link
+            if (event.target.closest('button') || event.target.closest('a')) {
+                return;
+            }
+            window.location.href = url;
+        }
+
         function showToast(msg, isError = false) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -275,6 +321,7 @@
             document.getElementById('deleteModalText').textContent = `Delete "${examName}"? This cannot be undone.`;
             document.getElementById('deleteModal').classList.add('active');
         }
+
         function closeDeleteModal() {
             pendingDeleteId = null;
             document.getElementById('deleteModal').classList.remove('active');
@@ -297,6 +344,7 @@
             .catch(() => { this.disabled = false; showToast('Network error.', true); });
         });
 
+        // Close modal when clicking on background or hitting escape key
         document.getElementById('deleteModal').addEventListener('click', function (e) { if (e.target === this) closeDeleteModal(); });
         document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDeleteModal(); });
 
@@ -307,8 +355,7 @@
             document.getElementById('cnt-published').textContent = counts.published;
             document.getElementById('cnt-archived').textContent = counts.archived;
         });
-    </script>
-    <script>
+
         document.querySelectorAll('.nav-link').forEach(function(link) {
             link.addEventListener('click', function() {
                 document.querySelector('.nav-links').classList.remove('open');
