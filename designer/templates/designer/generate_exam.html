@@ -1,4 +1,3 @@
-<!-- designer/templates/designer/generate_exam.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,500 +9,202 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/design-system.css">
     <style>
-        .gen-section {
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-2xl);
-            padding: var(--space-6);
-            margin-bottom: var(--space-6);
-        }
-        .gen-section h3 {
-            font-size: var(--text-lg);
-            margin-bottom: var(--space-4);
-        }
-
-        .doc-select-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: var(--space-3);
-            margin-bottom: var(--space-4);
-        }
-        .doc-select-item {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-3) var(--space-4);
-            background: var(--bg-input);
-            border: 2px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
-            cursor: pointer;
-            transition: all var(--transition-fast);
-        }
+        .gen-section { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-2xl); padding: var(--space-6); margin-bottom: var(--space-6); }
+        .gen-section h3 { font-size: var(--text-lg); margin-bottom: var(--space-4); }
+        .doc-select-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+        .doc-select-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--bg-input); border: 2px solid var(--border-subtle); border-radius: var(--radius-lg); cursor: pointer; transition: all var(--transition-fast); }
         .doc-select-item:hover { border-color: var(--border-medium); }
-        .doc-select-item.selected {
-            background: var(--accent-primary-soft);
-            border-color: var(--accent-primary);
-        }
-        .doc-select-item input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            accent-color: var(--accent-primary);
-        }
+        .doc-select-item.selected { background: var(--accent-primary-soft); border-color: var(--accent-primary); }
+        .doc-select-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent-primary); }
         .doc-select-name { font-weight: 600; font-size: var(--text-sm); margin-bottom: var(--space-1); }
         .doc-select-meta { font-size: var(--text-xs); color: var(--text-tertiary); }
-
-        .select-actions {
-            display: flex;
-            gap: var(--space-2);
-        }
-
-        .radio-group {
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-2);
-            margin-bottom: var(--space-4);
-        }
-        .radio-option {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            padding: var(--space-2) var(--space-3);
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            font-size: var(--text-sm);
-            transition: background var(--transition-fast);
-        }
+        .select-actions { display: flex; gap: var(--space-2); }
+        .radio-group { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-4); }
+        .radio-option { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); cursor: pointer; font-size: var(--text-sm); }
         .radio-option:hover { background: var(--bg-input); }
-        .radio-option input[type="radio"] {
-            width: 18px;
-            height: 18px;
-            accent-color: var(--accent-primary);
-        }
-
-        .page-options {
-            display: none;
-            margin-top: var(--space-4);
-            padding: var(--space-4);
-            background: var(--bg-input);
-            border-radius: var(--radius-lg);
-        }
+        .radio-option input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent-primary); }
+        .page-options { display: none; margin-top: var(--space-4); padding: var(--space-4); background: var(--bg-input); border-radius: var(--radius-lg); }
         .page-options.active { display: block; }
-
-        .inline-fields {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-            flex-wrap: wrap;
-        }
-        .inline-fields label {
-            font-size: var(--text-sm);
-            color: var(--text-secondary);
-        }
-        .inline-fields input {
-            width: 100px;
-        }
-
-        .count-options {
-            display: flex;
-            flex-wrap: wrap;
-            gap: var(--space-2);
-            margin-bottom: var(--space-4);
-        }
-        .count-btn {
-            padding: var(--space-2) var(--space-4);
-            background: var(--bg-input);
-            border: 2px solid var(--border-subtle);
-            border-radius: var(--radius-lg);
-            color: var(--text-secondary);
-            font-size: var(--text-sm);
-            font-weight: 600;
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            font-family: inherit;
-        }
+        .inline-fields { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+        .inline-fields label { font-size: var(--text-sm); color: var(--text-secondary); }
+        .inline-fields input { width: 100px; }
+        .count-options { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4); }
+        .count-btn { padding: var(--space-2) var(--space-4); background: var(--bg-input); border: 2px solid var(--border-subtle); border-radius: var(--radius-lg); color: var(--text-secondary); font-size: var(--text-sm); font-weight: 600; cursor: pointer; font-family: inherit; }
         .count-btn:hover { border-color: var(--border-medium); color: var(--text-primary); }
-        .count-btn.selected {
-            background: var(--accent-primary);
-            border-color: var(--accent-primary);
-            color: #fff;
-        }
-
-        .quota-bar {
-            display: flex;
-            gap: var(--space-3);
-            flex-wrap: wrap;
-            margin-top: var(--space-4);
-        }
-        .quota-pill {
-            background: var(--bg-input);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-full);
-            padding: var(--space-2) var(--space-4);
-            font-size: var(--text-xs);
-            color: var(--text-secondary);
-        }
-        .quota-pill strong {
-            color: var(--text-primary);
-            font-weight: 700;
-        }
-
-        .countdown-banner {
-            display: none;
-            background: var(--accent-warning-soft);
-            border: 1px solid rgba(245, 158, 11, 0.2);
-            border-radius: var(--radius-xl);
-            padding: var(--space-4) var(--space-5);
-            color: var(--accent-warning);
-            font-size: var(--text-sm);
-            font-weight: 500;
-            margin-bottom: var(--space-6);
-            text-align: center;
-        }
+        .count-btn.selected { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
+        .quota-bar { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-4); }
+        .quota-pill { background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: var(--radius-full); padding: var(--space-2) var(--space-4); font-size: var(--text-xs); color: var(--text-secondary); }
+        .quota-pill strong { color: var(--text-primary); font-weight: 700; }
+        .countdown-banner { display: none; background: var(--accent-warning-soft); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: var(--radius-xl); padding: var(--space-4) var(--space-5); color: var(--accent-warning); font-size: var(--text-sm); font-weight: 500; margin-bottom: var(--space-6); text-align: center; }
         .countdown-banner.show { display: block; }
-        .countdown-banner .time {
-            display: inline-block;
-            font-family: var(--font-mono);
-            font-size: var(--text-lg);
-            font-weight: 700;
-            margin-left: var(--space-2);
-        }
-
-        .btn-generate {
-            padding: var(--space-4) var(--space-8);
-            background: var(--accent-primary);
-            border: none;
-            border-radius: var(--radius-xl);
-            color: #fff;
-            font-size: var(--text-lg);
-            font-weight: 700;
-            cursor: pointer;
-            transition: all var(--transition-base);
-            font-family: inherit;
-        }
-        .btn-generate:hover:not(:disabled):not(.faded) {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
-        }
-        .btn-generate.faded {
-            opacity: 0.35;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-
-        .loading-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.9);
-            backdrop-filter: blur(10px);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: var(--space-6);
-        }
+        .countdown-banner .time { display: inline-block; font-family: var(--font-mono); font-size: var(--text-lg); font-weight: 700; margin-left: var(--space-2); }
+        .btn-generate { padding: var(--space-4) var(--space-8); background: var(--accent-primary); border: none; border-radius: var(--radius-xl); color: #fff; font-size: var(--text-lg); font-weight: 700; cursor: pointer; font-family: inherit; }
+        .btn-generate:hover:not(:disabled):not(.faded) { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3); }
+        .btn-generate.faded { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+        .loading-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(10px); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; gap: var(--space-6); }
         .loading-overlay.show { display: flex; }
-
-        .progress-circle {
-            position: relative;
-            width: 190px;
-            height: 190px;
-        }
-        .progress-circle svg {
-            transform: rotate(-90deg);
-            width: 100%;
-            height: 100%;
-        }
-        .progress-bg {
-            fill: none;
-            stroke: rgba(255, 255, 255, 0.1);
-            stroke-width: 10;
-        }
-        .progress-fg {
-            fill: none;
-            stroke: url(#gradient);
-            stroke-width: 10;
-            stroke-linecap: round;
-            stroke-dasharray: 534;
-            stroke-dashoffset: 534;
-            transition: stroke-dashoffset 0.6s ease; /* smooth transition */
-        }
-        .progress-text {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-        }
-        .progress-text span:first-child {
-            font-size: var(--text-2xl);
-            font-weight: 800;
-        }
-        .progress-timer {
-            font-size: var(--text-xs);
-            color: rgba(255, 255, 255, 0.6);
-            margin-top: var(--space-2);
-        }
-
-        .success-check {
-            display: none;
-            width: 190px;
-            height: 190px;
-        }
+        .progress-circle { position: relative; width: 190px; height: 190px; }
+        .progress-circle svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+        .progress-bg { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 10; }
+        .progress-fg { fill: none; stroke: url(#gradient); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 534; stroke-dashoffset: 534; transition: stroke-dashoffset 0.35s ease; }
+        .progress-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; }
+        .progress-text span:first-child { font-size: var(--text-2xl); font-weight: 800; }
+        .progress-timer { font-size: var(--text-xs); color: rgba(255,255,255,0.6); margin-top: var(--space-2); }
+        .success-check { display: none; width: 190px; height: 190px; }
         .success-check.show { display: block; }
-        .success-check svg {
-            width: 100%;
-            height: 100%;
-        }
-        .success-check circle {
-            fill: var(--accent-success-soft);
-            stroke: var(--accent-success);
-            stroke-width: 4;
-        }
-        .success-check path {
-            fill: none;
-            stroke: var(--accent-success);
-            stroke-width: 8;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            stroke-dasharray: 200;
-            stroke-dashoffset: 200;
-            animation: drawCheck 0.6s ease forwards;
-        }
-        @keyframes drawCheck {
-            to { stroke-dashoffset: 0; }
-        }
-
-        .loading-label {
-            color: #fff;
-            font-size: var(--text-lg);
-            font-weight: 600;
-            text-align: center;
-        }
-        .loading-label .dots::after {
-            content: '...';
-            animation: dots 1.5s steps(4, end) infinite;
-        }
-        @keyframes dots {
-            0%, 20% { content: ''; }
-            40% { content: '.'; }
-            60% { content: '..'; }
-            80%, 100% { content: '...'; }
-        }
-        .loading-sub {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: var(--text-sm);
-            text-align: center;
-        }
-
-        .pulse-ring {
-            position: absolute;
-            inset: -20px;
-            border: 2px solid var(--accent-primary);
-            border-radius: 50%;
-            animation: pulseRing 2s ease-out infinite;
-        }
-        @keyframes pulseRing {
-            0% { transform: scale(1); opacity: 0.6; }
-            100% { transform: scale(1.15); opacity: 0; }
-        }
-
-        .toast-container {
-            position: fixed;
-            bottom: var(--space-4, 20px);
-            right: var(--space-4, 20px);
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 10000;
-        }
-        .toast {
-            min-width: 250px;
-            padding: 12px 20px;
-            background: var(--bg-card, #1e1e2d);
-            color: #fff;
-            border-radius: var(--radius-md, 8px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            font-size: 14px;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.3s ease, transform 0.3s ease;
-            border-left: 4px solid var(--accent-primary, #3b82f6);
-        }
-        .toast.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        .toast-error { border-left-color: var(--accent-warning, #ef4444); }
-        .toast-success { border-left-color: var(--accent-success, #10b981); }
-
-        @media (max-width: 768px) {
-            .doc-select-grid { grid-template-columns: 1fr; }
-            .count-options { gap: var(--space-1); }
-            .count-btn { padding: var(--space-2) var(--space-3); font-size: var(--text-xs); }
-        }
+        .success-check svg { width: 100%; height: 100%; }
+        .success-check circle { fill: var(--accent-success-soft); stroke: var(--accent-success); stroke-width: 4; }
+        .success-check path { fill: none; stroke: var(--accent-success); stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 200; stroke-dashoffset: 200; animation: drawCheck 0.5s ease forwards; }
+        @keyframes drawCheck { to { stroke-dashoffset: 0; } }
+        .loading-label { color: #fff; font-size: var(--text-lg); font-weight: 600; text-align: center; }
+        .loading-label .dots::after { content: '...'; animation: dots 1.5s steps(4,end) infinite; }
+        @keyframes dots { 0%,20%{content:''} 40%{content:'.'} 60%{content:'..'} 80%,100%{content:'...'} }
+        .loading-sub { color: rgba(255,255,255,0.6); font-size: var(--text-sm); text-align: center; }
+        .pulse-ring { position: absolute; inset: -20px; border: 2px solid var(--accent-primary); border-radius: 50%; animation: pulseRing 2s ease-out infinite; }
+        @keyframes pulseRing { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(1.15);opacity:0} }
+        .toast-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 10000; max-width: min(420px, calc(100vw - 32px)); }
+        .toast { min-width: 240px; padding: 12px 18px; background: var(--bg-card,#1e1e2d); color: #fff; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); font-size: 14px; opacity: 0; transform: translateY(16px); transition: 0.25s ease; border-left: 4px solid #3b82f6; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast-error { border-left-color: #ef4444; }
+        .toast-success { border-left-color: #10b981; }
+        @media (max-width: 768px) { .doc-select-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar">
-        <a href="{% url 'designer:home' %}" class="navbar-brand">
-            <div class="logo-mark"></div>
-            Exam<span>gen</span>
-        </a>
-        <button class="nav-toggle" onclick="this.classList.toggle('active'); document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">
-            <span></span><span></span><span></span>
-        </button>
-        <div class="nav-links">
-            <a href="{% url 'designer:admin_dashboard' %}" class="nav-link">Dashboard</a>
-            <a href="{% url 'designer:documents' %}" class="nav-link">Documents</a>
-            <a href="{% url 'designer:generate_exam' %}" class="nav-link active">Generate</a>
-            <a href="{% url 'designer:exam_list' %}" class="nav-link">Exams</a>
-            <a href="{% url 'designer:results_dashboard' %}" class="nav-link">Results</a>
-            <a href="{% url 'designer:logout' %}" class="nav-link logout">Logout</a>
-        </div>
-    </nav>
+<nav class="navbar">
+    <a href="{% url 'designer:home' %}" class="navbar-brand"><div class="logo-mark"></div>Exam<span>gen</span></a>
+    <button class="nav-toggle" onclick="this.classList.toggle('active');document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu"><span></span><span></span><span></span></button>
+    <div class="nav-links">
+        <a href="{% url 'designer:admin_dashboard' %}" class="nav-link">Dashboard</a>
+        <a href="{% url 'designer:documents' %}" class="nav-link">Documents</a>
+        <a href="{% url 'designer:generate_exam' %}" class="nav-link active">Generate</a>
+        <a href="{% url 'designer:exam_list' %}" class="nav-link">Exams</a>
+        <a href="{% url 'designer:results_dashboard' %}" class="nav-link">Results</a>
+        <a href="{% url 'designer:logout' %}" class="nav-link logout">Logout</a>
+    </div>
+</nav>
 
-    <div class="main-content">
-        <div class="page-header">
-            <h1>🤖 Generate MCQ Questions</h1>
-            <p style="color: var(--text-secondary); margin-top: var(--space-2);">Select source documents and configure batch question generation (10 – 500 questions).</p>
-        </div>
-
-        {% if documents %}
-        <!-- Document Selection -->
-        <div class="gen-section">
-            <h3>📚 Select Source Documents</h3>
-            <div class="doc-select-grid">
-                {% for doc in documents %}
-                <label class="doc-select-item" id="doc-item-{{ doc.id }}">
-                    <input type="checkbox" class="doc-checkbox" value="{{ doc.id }}" data-pages="{{ doc.page_count }}">
-                    <div>
-                        <div class="doc-select-name">{{ doc.original_filename }}</div>
-                        <div class="doc-select-meta">{{ doc.page_count }} pages · {{ doc.file_size_display }}</div>
-                    </div>
-                </label>
-                {% endfor %}
-            </div>
-            <div class="select-actions">
-                <button class="btn btn-outline" onclick="selectAll()">Select All</button>
-                <button class="btn btn-outline" onclick="deselectAll()">Deselect All</button>
-            </div>
-        </div>
-
-        <!-- Page Selection -->
-        <div class="gen-section">
-            <h3>📄 Page Selection</h3>
-            <div class="radio-group">
-                <label class="radio-option"><input type="radio" name="source_type" value="entire" checked> Entire PDF(s)</label>
-                <label class="radio-option"><input type="radio" name="source_type" value="range"> Page Range</label>
-                <label class="radio-option"><input type="radio" name="source_type" value="specific"> Specific Pages</label>
-                <label class="radio-option"><input type="radio" name="source_type" value="random"> Random Pages</label>
-            </div>
-
-            <div class="page-options" id="opt-range">
-                <div class="inline-fields">
-                    <label>From page:</label>
-                    <input type="number" class="form-control" id="page-from" min="1" value="1">
-                    <label>To page:</label>
-                    <input type="number" class="form-control" id="page-to" min="1" value="10">
-                </div>
-            </div>
-            <div class="page-options" id="opt-specific">
-                <div class="form-group">
-                    <label>Page numbers (comma separated):</label>
-                    <input type="text" class="form-control" id="specific-pages" placeholder="e.g., 3, 7, 12, 18, 25">
-                </div>
-            </div>
-            <div class="page-options" id="opt-random">
-                <div class="inline-fields">
-                    <label>Number of random pages:</label>
-                    <input type="number" class="form-control" id="random-count" min="1" value="10">
-                </div>
-            </div>
-        </div>
-
-        <!-- Question Count -->
-        <div class="gen-section">
-            <h3>🔢 Number of Questions <span style="color: var(--text-tertiary); font-weight: 400; font-size: var(--text-sm);">(10 – 500)</span></h3>
-            <div class="count-options">
-                <button class="count-btn selected" data-count="10">10</button>
-                <button class="count-btn" data-count="20">20</button>
-                <button class="count-btn" data-count="50">50</button>
-                <button class="count-btn" data-count="100">100</button>
-                <button class="count-btn" data-count="200">200</button>
-                <button class="count-btn" data-count="500">500</button>
-                <button class="count-btn" data-count="custom">Custom</button>
-            </div>
-
-            <div class="form-group" id="custom-count-group" style="display: none;">
-                <label>Enter exact question count (10–500):</label>
-                <input type="number" class="form-control" id="custom-count" placeholder="e.g., 75" min="10" max="500" value="75" style="width: 220px;">
-            </div>
-
-            <div class="quota-bar" id="quota-bar">
-                <span class="quota-pill">RPD: <strong id="q-rpd">Loading...</strong></span>
-                <span class="quota-pill">RPM: <strong id="q-rpm">Loading...</strong></span>
-                <span class="quota-pill">Status: <strong id="q-status">Checking...</strong></span>
-            </div>
-        </div>
-
-        <!-- Countdown Banner -->
-        <div class="countdown-banner" id="countdown-banner">
-            ⏳ Rate limit active. Resuming in <div class="time" id="countdown-time">00:00</div>
-        </div>
-
-        <!-- Generate Button -->
-        <div style="text-align: center; margin-top: var(--space-8);">
-            <button class="btn-generate" id="btn-generate" onclick="onGenerateClick()">
-                🤖 Generate Questions
-            </button>
-        </div>
-
-        {% else %}
-        <div class="empty-state">
-            <div class="empty-icon">📂</div>
-            <h3 class="empty-title">No Documents</h3>
-            <p class="empty-text">No documents available. <a href="{% url 'designer:documents' %}" style="color: var(--accent-primary);">Upload PDFs first</a>.</p>
-        </div>
-        {% endif %}
+<div class="main-content">
+    <div class="page-header">
+        <h1>🤖 Generate MCQ Questions</h1>
+        <p style="color: var(--text-secondary); margin-top: var(--space-2);">Select documents and generate 10–500 questions.</p>
     </div>
 
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loading">
-        <div class="progress-circle" id="progress-circle-wrap">
-            <div class="pulse-ring"></div>
-            <svg width="190" height="190" viewBox="0 0 190 190">
-                <defs>
-                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#3b82f6"/>
-                        <stop offset="50%" stop-color="#8b5cf6"/>
-                        <stop offset="100%" stop-color="#ec4899"/>
-                    </linearGradient>
-                </defs>
-                <circle class="progress-bg" cx="95" cy="95" r="85"></circle>
-                <circle class="progress-fg" id="progress-ring" cx="95" cy="95" r="85"></circle>
-            </svg>
-            <div class="progress-text">
-                <span id="progress-pct">0%</span>
-                <span class="progress-timer" id="progress-timer">Generating...</span>
-            </div>
+    {% if documents %}
+    <div class="gen-section">
+        <h3>📚 Select Source Documents</h3>
+        <div class="doc-select-grid">
+            {% for doc in documents %}
+            <label class="doc-select-item">
+                <input type="checkbox" class="doc-checkbox" value="{{ doc.id }}" data-pages="{{ doc.page_count }}">
+                <div>
+                    <div class="doc-select-name">{{ doc.original_filename }}</div>
+                    <div class="doc-select-meta">{{ doc.page_count }} pages · {{ doc.file_size_display }}</div>
+                </div>
+            </label>
+            {% endfor %}
         </div>
-
-        <div class="success-check" id="success-check">
-            <svg viewBox="0 0 190 190">
-                <circle cx="95" cy="95" r="85"></circle>
-                <path d="M55 95 L85 125 L135 70"></path>
-            </svg>
+        <div class="select-actions">
+            <button type="button" class="btn btn-outline" onclick="selectAll()">Select All</button>
+            <button type="button" class="btn btn-outline" onclick="deselectAll()">Deselect All</button>
         </div>
-
-        <p class="loading-label" id="loading-label" aria-live="polite"><span id="loading-label-text">Preparing document</span><span class="dots"></span></p>
-        <p class="loading-sub" id="loading-sub" aria-live="polite">Reading your material</p>
     </div>
 
-    <div class="toast-container" id="toast-container"></div>
+    <div class="gen-section">
+        <h3>📄 Page Selection</h3>
+        <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="source_type" value="entire" checked> Entire PDF(s)</label>
+            <label class="radio-option"><input type="radio" name="source_type" value="range"> Page Range</label>
+            <label class="radio-option"><input type="radio" name="source_type" value="specific"> Specific Pages</label>
+            <label class="radio-option"><input type="radio" name="source_type" value="random"> Random Pages</label>
+        </div>
+        <div class="page-options" id="opt-range">
+            <div class="inline-fields">
+                <label>From:</label><input type="number" class="form-control" id="page-from" min="1" value="1">
+                <label>To:</label><input type="number" class="form-control" id="page-to" min="1" value="10">
+            </div>
+        </div>
+        <div class="page-options" id="opt-specific">
+            <div class="form-group">
+                <label>Pages (comma / ranges):</label>
+                <input type="text" class="form-control" id="specific-pages" placeholder="e.g. 3, 7, 12-18">
+            </div>
+        </div>
+        <div class="page-options" id="opt-random">
+            <div class="inline-fields">
+                <label>Random pages:</label>
+                <input type="number" class="form-control" id="random-count" min="1" value="10">
+            </div>
+        </div>
+    </div>
+
+    <div class="gen-section">
+        <h3>🔢 Number of Questions <span style="color:var(--text-tertiary);font-weight:400;font-size:var(--text-sm)">(10–500)</span></h3>
+        <div class="count-options">
+            <button type="button" class="count-btn selected" data-count="10">10</button>
+            <button type="button" class="count-btn" data-count="20">20</button>
+            <button type="button" class="count-btn" data-count="50">50</button>
+            <button type="button" class="count-btn" data-count="100">100</button>
+            <button type="button" class="count-btn" data-count="200">200</button>
+            <button type="button" class="count-btn" data-count="500">500</button>
+            <button type="button" class="count-btn" data-count="custom">Custom</button>
+        </div>
+        <div class="form-group" id="custom-count-group" style="display:none;">
+            <label>Exact count (10–500):</label>
+            <input type="number" class="form-control" id="custom-count" min="10" max="500" value="75" style="width:220px;">
+        </div>
+        <div class="quota-bar">
+            <span class="quota-pill">RPD: <strong id="q-rpd">…</strong></span>
+            <span class="quota-pill">RPM: <strong id="q-rpm">…</strong></span>
+            <span class="quota-pill">Status: <strong id="q-status">…</strong></span>
+        </div>
+    </div>
+
+    <div class="countdown-banner" id="countdown-banner">
+        ⏳ Rate limit. Resuming in <span class="time" id="countdown-time">00:00</span>
+    </div>
+
+    <div style="text-align:center;margin-top:var(--space-8);">
+        <button type="button" class="btn-generate" id="btn-generate" onclick="onGenerateClick()">🤖 Generate Questions</button>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📂</div>
+        <h3 class="empty-title">No Documents</h3>
+        <p class="empty-text">Upload PDFs first. <a href="{% url 'designer:documents' %}" style="color:var(--accent-primary)">Documents</a></p>
+    </div>
+    {% endif %}
+</div>
+
+<div class="loading-overlay" id="loading">
+    <div class="progress-circle" id="progress-circle-wrap">
+        <div class="pulse-ring"></div>
+        <svg width="190" height="190" viewBox="0 0 190 190">
+            <defs>
+                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="50%" stop-color="#8b5cf6"/>
+                    <stop offset="100%" stop-color="#ec4899"/>
+                </linearGradient>
+            </defs>
+            <circle class="progress-bg" cx="95" cy="95" r="85"></circle>
+            <circle class="progress-fg" id="progress-ring" cx="95" cy="95" r="85"></circle>
+        </svg>
+        <div class="progress-text">
+            <span id="progress-pct">0%</span>
+            <span class="progress-timer" id="progress-timer">Working…</span>
+        </div>
+    </div>
+    <div class="success-check" id="success-check">
+        <svg viewBox="0 0 190 190">
+            <circle cx="95" cy="95" r="85"></circle>
+            <path d="M55 95 L85 125 L135 70"></path>
+        </svg>
+    </div>
+    <p class="loading-label"><span id="loading-label-text">Preparing</span><span class="dots"></span></p>
+    <p class="loading-sub" id="loading-sub">Please wait</p>
+</div>
+<div class="toast-container" id="toast-container"></div>
 
 <script>
 const csrfToken = '{{ csrf_token }}';
@@ -511,33 +212,38 @@ const URL_START  = '{% url "designer:generate_start" %}';
 const URL_BATCH  = '{% url "designer:generate_batch" %}';
 const URL_QUOTA  = '{% url "designer:generate_quota" %}';
 const URL_REVIEW = '{% url "designer:review_questions" %}';
+const CIRC = 2 * Math.PI * 85;
 
-const CIRCUMFERENCE = 2 * Math.PI * 85; // ~534
 let selectedCount = '10';
 let isGenerating = false;
 let countdownTimer = null;
+let lastPct = 0;
 
-// ==============================================================
-// REAL PROGRESS ENGINE (No Artificial Sticking)
-// ==============================================================
-function updateProgress(pct, statusMsg, subMsg) {
-    pct = Math.max(0, Math.min(100, pct)); // Clamp 0-100
-
-    const ringEl = document.getElementById('progress-ring');
-    const pctEl  = document.getElementById('progress-pct');
-    const labelEl = document.getElementById('loading-label-text');
-    const subEl = document.getElementById('loading-sub');
-
-    if (ringEl) ringEl.style.strokeDashoffset = String(CIRCUMFERENCE - (pct / 100) * CIRCUMFERENCE);
-    if (pctEl) pctEl.textContent = Math.floor(pct) + '%';
-    if (labelEl && statusMsg) labelEl.textContent = statusMsg;
-    if (subEl && subMsg) subEl.textContent = subMsg;
+function paint(pct) {
+    pct = Math.max(0, Math.min(100, Number(pct) || 0));
+    if (pct < lastPct && pct < 100) pct = lastPct; // never go backwards
+    lastPct = pct;
+    const ring = document.getElementById('progress-ring');
+    const el = document.getElementById('progress-pct');
+    if (ring) ring.style.strokeDashoffset = String(CIRC - (pct / 100) * CIRC);
+    if (el) el.textContent = Math.floor(pct) + '%';
 }
 
-function showLoading(show) {
-    document.getElementById('loading').classList.toggle('show', show);
-    if (!show) {
-        updateProgress(0, 'Preparing document', 'Reading your material');
+function setLabels(main, sub, tip) {
+    const a = document.getElementById('loading-label-text');
+    const b = document.getElementById('loading-sub');
+    const c = document.getElementById('progress-timer');
+    if (a && main) a.textContent = main;
+    if (b && sub != null) b.textContent = sub;
+    if (c && tip != null) c.textContent = tip;
+}
+
+function showLoading(on) {
+    document.getElementById('loading').classList.toggle('show', on);
+    if (!on) {
+        lastPct = 0;
+        paint(0);
+        setLabels('Preparing', 'Please wait', 'Working…');
         const check = document.getElementById('success-check');
         const ring = document.getElementById('progress-circle-wrap');
         if (check) check.classList.remove('show');
@@ -547,76 +253,94 @@ function showLoading(show) {
     }
 }
 
-async function safeFetchJson(url, options = {}) {
+function finishUI(nQ) {
+    paint(100);
+    setLabels('✨ ' + nQ + ' questions ready', 'Redirecting to review…', 'Complete');
+    setTimeout(function () {
+        const ring = document.getElementById('progress-circle-wrap');
+        const check = document.getElementById('success-check');
+        if (ring) ring.style.display = 'none';
+        if (check) check.classList.add('show');
+        const dots = document.querySelector('.loading-label .dots');
+        if (dots) dots.style.display = 'none';
+    }, 200);
+    setTimeout(function () { window.location.href = URL_REVIEW; }, 900);
+}
+
+async function safeFetchJson(url, options) {
     try {
-        const res = await fetch(url, options);
+        const res = await fetch(url, options || {});
         const text = await res.text();
         try {
-            return { status: res.status, ok: res.ok, data: JSON.parse(text) };
+            return { status: res.status, data: JSON.parse(text) };
         } catch (e) {
-            return { status: res.status, ok: false, data: { success: false, error: `Server error (${res.status}).` } };
+            return { status: res.status, data: { success: false, error: 'Server error (' + res.status + ')' } };
         }
-    } catch (netErr) {
-        return { status: 0, ok: false, data: { success: false, error: "Network error. Please try again." } };
+    } catch (e) {
+        return { status: 0, data: { success: false, error: 'Network error' } };
     }
 }
 
+function showToast(msg, type) {
+    const box = document.getElementById('toast-container');
+    if (!box || !msg) return;
+    const t = document.createElement('div');
+    t.className = 'toast toast-' + (type || 'success') + ' show';
+    t.textContent = msg;
+    box.appendChild(t);
+    setTimeout(function () {
+        t.classList.remove('show');
+        setTimeout(function () { t.remove(); }, 250);
+    }, 4500);
+}
+
 function refreshQuota() {
-    safeFetchJson(URL_QUOTA, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(({ data }) => {
-            if(!data) return;
-            const rpdEl = document.getElementById('q-rpd');
-            const rpmEl = document.getElementById('q-rpm');
-            const stEl  = document.getElementById('q-status');
-            const btn   = document.getElementById('btn-generate');
-
-            if (rpdEl && data.rpd_remaining !== undefined) {
-                rpdEl.textContent = `${data.rpd_remaining} / ${data.rpd_limit} left today`;
-                rpmEl.textContent = `${data.rpm_remaining} / ${data.rpm_limit} this min`;
-
-                if (data.can_request) {
-                    stEl.textContent = 'System Ready';
-                    stEl.style.color = '#2ed573';
-                    if (!isGenerating) {
-                        btn.classList.remove('faded');
-                        btn.disabled = false;
-                        document.getElementById('countdown-banner').classList.remove('show');
-                    }
-                } else if (data.wait_seconds > 0) {
-                    stEl.textContent = `Cooldown (${data.wait_seconds}s)`;
-                    stEl.style.color = '#ffc107';
-                    if (!isGenerating) startCountdown(data.wait_seconds);
-                } else {
-                    stEl.textContent = 'Daily Limit Exhausted';
-                    stEl.style.color = '#ff4757';
-                    if (!isGenerating) startCountdown(data.rpd_reset_seconds || 3600);
-                }
+    safeFetchJson(URL_QUOTA, { headers: { 'X-Requested-With': 'XMLHttpRequest' } }).then(function (r) {
+        const data = r.data || {};
+        const rpd = document.getElementById('q-rpd');
+        const rpm = document.getElementById('q-rpm');
+        const st = document.getElementById('q-status');
+        const btn = document.getElementById('btn-generate');
+        if (!rpd || data.rpd_remaining === undefined) return;
+        rpd.textContent = data.rpd_remaining + ' / ' + data.rpd_limit + ' today';
+        rpm.textContent = data.rpm_remaining + ' / ' + data.rpm_limit + ' /min';
+        if (data.can_request) {
+            st.textContent = 'Ready';
+            st.style.color = '#2ed573';
+            if (!isGenerating && btn) {
+                btn.classList.remove('faded');
+                btn.disabled = false;
+                document.getElementById('countdown-banner').classList.remove('show');
             }
-        });
+        } else if (data.wait_seconds > 0) {
+            st.textContent = 'Cooldown ' + data.wait_seconds + 's';
+            st.style.color = '#ffc107';
+            if (!isGenerating) startCountdown(data.wait_seconds);
+        } else {
+            st.textContent = 'Daily limit';
+            st.style.color = '#ff4757';
+        }
+    });
 }
 refreshQuota();
-setInterval(refreshQuota, 15000);
+setInterval(refreshQuota, 20000);
 
 function startCountdown(seconds) {
     const banner = document.getElementById('countdown-banner');
     const timeEl = document.getElementById('countdown-time');
     const btn = document.getElementById('btn-generate');
-
-    btn.classList.add('faded');
-    btn.disabled = true;
+    if (btn) { btn.classList.add('faded'); btn.disabled = true; }
     banner.classList.add('show');
-
     if (countdownTimer) clearInterval(countdownTimer);
     let left = seconds;
     function tick() {
         const m = String(Math.floor(left / 60)).padStart(2, '0');
         const s = String(left % 60).padStart(2, '0');
-        timeEl.textContent = `${m}:${s}`;
+        timeEl.textContent = m + ':' + s;
         if (left <= 0) {
             clearInterval(countdownTimer);
             banner.classList.remove('show');
-            btn.classList.remove('faded');
-            btn.disabled = false;
+            if (btn) { btn.classList.remove('faded'); btn.disabled = false; }
             refreshQuota();
             return;
         }
@@ -626,63 +350,59 @@ function startCountdown(seconds) {
     countdownTimer = setInterval(tick, 1000);
 }
 
-document.querySelectorAll('.doc-checkbox').forEach(cb => {
-    cb.addEventListener('change', function() {
+document.querySelectorAll('.doc-checkbox').forEach(function (cb) {
+    cb.addEventListener('change', function () {
         this.closest('.doc-select-item').classList.toggle('selected', this.checked);
     });
 });
-
 function selectAll() {
-    document.querySelectorAll('.doc-checkbox').forEach(cb => {
-        cb.checked = true; cb.closest('.doc-select-item').classList.add('selected');
+    document.querySelectorAll('.doc-checkbox').forEach(function (cb) {
+        cb.checked = true;
+        cb.closest('.doc-select-item').classList.add('selected');
     });
 }
-
 function deselectAll() {
-    document.querySelectorAll('.doc-checkbox').forEach(cb => {
-        cb.checked = false; cb.closest('.doc-select-item').classList.remove('selected');
+    document.querySelectorAll('.doc-checkbox').forEach(function (cb) {
+        cb.checked = false;
+        cb.closest('.doc-select-item').classList.remove('selected');
     });
 }
-
-document.querySelectorAll('input[name="source_type"]').forEach(r => {
-    r.addEventListener('change', function() {
-        document.querySelectorAll('.page-options').forEach(el => el.classList.remove('active'));
+document.querySelectorAll('input[name="source_type"]').forEach(function (r) {
+    r.addEventListener('change', function () {
+        document.querySelectorAll('.page-options').forEach(function (el) { el.classList.remove('active'); });
         const opt = document.getElementById('opt-' + this.value);
         if (opt) opt.classList.add('active');
     });
 });
-
-document.querySelectorAll('.count-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.count-btn').forEach(b => b.classList.remove('selected'));
+document.querySelectorAll('.count-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('.count-btn').forEach(function (b) { b.classList.remove('selected'); });
         this.classList.add('selected');
         selectedCount = this.dataset.count;
-        const wrap = document.getElementById('custom-count-group');
-        if (wrap) wrap.style.display = selectedCount === 'custom' ? 'block' : 'none';
+        document.getElementById('custom-count-group').style.display =
+            selectedCount === 'custom' ? 'block' : 'none';
     });
 });
 
 function buildPayload() {
     const checked = document.querySelectorAll('.doc-checkbox:checked');
-    if (!checked.length) { showToast('Please select at least one document.', 'error'); return null; }
-    
+    if (!checked.length) { showToast('Select at least one document.', 'error'); return null; }
     const sourceType = document.querySelector('input[name="source_type"]:checked').value;
     let choice = selectedCount;
     let custom = null;
-    
     if (choice === 'custom') {
         custom = parseInt(document.getElementById('custom-count').value || '10', 10);
-        if (custom < 10 || custom > 500) { showToast('Custom count must be between 10 and 500.', 'error'); return null; }
+        if (custom < 10 || custom > 500) {
+            showToast('Custom count must be 10–500.', 'error');
+            return null;
+        }
     }
-    
     const payload = {
-        documents: Array.from(checked).map(cb => cb.value),
+        documents: Array.from(checked).map(function (cb) { return cb.value; }),
         source_type: sourceType,
-        question_count_choice: choice,
+        question_count_choice: choice
     };
-    
     if (custom !== null) payload.custom_count = custom;
-    
     if (sourceType === 'range') {
         payload.page_from = document.getElementById('page-from').value;
         payload.page_to = document.getElementById('page-to').value;
@@ -701,24 +421,14 @@ function getRequestedCount() {
     return parseInt(selectedCount, 10);
 }
 
-function showToast(msg, type) {
-    const container = document.getElementById('toast-container');
-    if (!container) return;
-    
-    const t = document.createElement('div');
-    t.className = `toast toast-${type} show`;
-    t.textContent = msg;
-    
-    container.appendChild(t);
-    setTimeout(() => {
-        t.classList.remove('show');
-        setTimeout(() => t.remove(), 300);
-    }, 5500);
+function endLoader() {
+    isGenerating = false;
+    showLoading(false);
+    const btn = document.getElementById('btn-generate');
+    if (btn) { btn.disabled = false; btn.classList.remove('faded'); }
+    refreshQuota();
 }
 
-// ==============================================================
-// THE GENERATION LOGIC (PACED & RATE-LIMIT SAFE)
-// ==============================================================
 async function onGenerateClick() {
     if (isGenerating) return;
     const payload = buildPayload();
@@ -728,172 +438,110 @@ async function onGenerateClick() {
     btn.disabled = true;
     btn.classList.add('faded');
 
-    const nQuestions = getRequestedCount();
-    window._currentTarget = nQuestions;
-
+    window._currentTarget = getRequestedCount();
     isGenerating = true;
+    lastPct = 0;
     showLoading(true);
-    updateProgress(5, 'Preparing Document', 'Extracting and analyzing text...');
+    paint(3);
+    setLabels('Preparing document', 'Extracting text…', 'Starting');
 
-    const { status, data } = await safeFetchJson(URL_START, {
+    const start = await safeFetchJson(URL_START, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': csrfToken,
-            'X-Requested-With': 'XMLHttpRequest',
+            'X-Requested-With': 'XMLHttpRequest'
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(payload)
     });
 
-    if (status === 429) {
+    const data = start.data || {};
+    if (start.status === 429) {
         endLoader();
-        startCountdown((data && data.retry_after) || 60);
-        showToast((data && data.error) || 'Rate limit active. Come back shortly.', 'error');
+        startCountdown(data.retry_after || 30);
+        showToast(data.error || 'Rate limited. Wait and retry.', 'error');
         return;
     }
-
-    if (!data || !data.success) {
+    if (!data.success) {
         endLoader();
-        showToast((data && data.error) || 'Could not start generation.', 'error');
+        showToast(data.error || 'Could not start.', 'error');
         return;
     }
-
     if (data.plan && data.plan.total_questions) {
         window._currentTarget = data.plan.total_questions;
     }
 
-    updateProgress(
-        10,
-        'Ready to Generate',
-        'Starting batch generation for ' + window._currentTarget + ' questions...'
-    );
+    paint(8);
+    setLabels('Generating', '0 / ' + window._currentTarget, 'Batching…');
     await runBatches();
 }
 
-function endLoader() {
-    isGenerating = false;
-    showLoading(false);
-    const btn = document.getElementById('btn-generate');
-    if (btn) {
-        btn.disabled = false;
-        btn.classList.remove('faded');
-    }
-    refreshQuota();
-}
-
 async function runBatches() {
-    let exhaustedRetries = 0;
-    const targetFallback = window._currentTarget || 10;
+    let retries = 0;
+    const maxRetries = 30;
 
     while (true) {
-        const { data } = await safeFetchJson(URL_BATCH, {
+        const res = await safeFetchJson(URL_BATCH, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken,
-                'X-Requested-With': 'XMLHttpRequest',
+                'X-Requested-With': 'XMLHttpRequest'
             },
-            body: '{}',
+            body: '{}'
         });
+        const data = res.data || {};
 
-        if (!data) {
-            endLoader();
-            showToast('Empty response from server. Please try again.', 'error');
-            return;
-        }
-
-        // 1. DONE
+        // DONE → 100% immediately then review
         if (data.success && data.done) {
             const nQ = data.count || data.total_so_far || window._currentTarget || 0;
-            updateProgress(100, '✨ ' + nQ + ' questions ready', 'Redirecting to review…');
-
-            setTimeout(function () {
-                const ring = document.getElementById('progress-circle-wrap');
-                const check = document.getElementById('success-check');
-                if (ring) ring.style.display = 'none';
-                if (check) check.classList.add('show');
-                const dots = document.querySelector('.loading-label .dots');
-                if (dots) dots.style.display = 'none';
-            }, 300);
-
-            setTimeout(function () {
-                window.location.href = URL_REVIEW;
-            }, 1200);
+            finishUI(nQ);
             return;
         }
 
-        // 2. RETRYABLE (pacing / soft fail)
+        // Soft retry
         if (!data.success && data.retryable) {
-            exhaustedRetries++;
-            const wait = Math.max(1, Number(data.retry_after) || 4);
+            retries++;
             const collected = Number(data.total_so_far) || 0;
-            const target = Number(data.total_questions) || targetFallback || 10;
-            const pct = Math.max(10, Math.min(99, (collected / target) * 100));
-
-            updateProgress(
-                pct,
-                'Pacing AI Request',
-                'Cooldown… ' + collected + '/' + target + ' (retry ' + exhaustedRetries + ')'
-            );
-
-            if (exhaustedRetries > 25) {
+            const target = Number(data.total_questions) || window._currentTarget || 10;
+            const pct = Math.max(lastPct, Math.min(99, (collected / target) * 100));
+            paint(pct || Math.max(lastPct, 10));
+            setLabels('Pacing…', collected + ' / ' + target, 'Retry ' + retries);
+            if (retries > maxRetries) {
                 endLoader();
-                showToast(
-                    'Models are busy or rate-limited. Wait a minute and try again.',
-                    'error'
-                );
+                showToast('Still busy after many retries. Wait 1 minute and try again.', 'error');
                 return;
             }
-
-            await new Promise(function (r) {
-                setTimeout(r, wait * 1000);
-            });
+            const wait = Math.max(1, Number(data.retry_after) || 2);
+            await new Promise(function (r) { setTimeout(r, wait * 1000); });
             continue;
         }
 
-        // 3. BATCH OK, more to go
+        // Progress batch
         if (data.success && !data.done) {
-            exhaustedRetries = 0;
+            retries = 0;
             const collected = Number(data.total_so_far) || 0;
-            const target = Number(data.total_questions) || targetFallback || 10;
-            const realPct = Math.min(99, Math.max(10, (collected / target) * 100));
-
-            updateProgress(
-                realPct,
-                'Generating Questions',
-                'Collected ' + collected + ' of ' + target + ' questions'
-            );
-
-            // Stay under ~15 RPM (free tier)
-            await new Promise(function (r) {
-                setTimeout(r, 4200);
-            });
+            const target = Number(data.total_questions) || window._currentTarget || 10;
+            const pct = Math.min(99, Math.max(8, (collected / target) * 100));
+            paint(pct);
+            setLabels('Generating questions', collected + ' / ' + target + ' unique', 'Running');
+            // FAST gap — only 400ms (server enforces light pacing if needed)
+            await new Promise(function (r) { setTimeout(r, 400); });
             continue;
         }
 
-        // 4. HARD FAIL
         endLoader();
-        const msg = ((data && data.error) || '').toLowerCase();
-        if (
-            msg.indexOf('quota') !== -1 ||
-            msg.indexOf('rate') !== -1 ||
-            msg.indexOf('limit') !== -1 ||
-            msg.indexOf('busy') !== -1
-        ) {
-            showToast('API quota exhausted. Please try again later.', 'error');
-        } else {
-            showToast((data && data.error) || 'Generation failed. Please try again.', 'error');
-        }
+        showToast((data && data.error) || 'Generation failed.', 'error');
         return;
     }
 }
 
-document.querySelectorAll('.nav-link').forEach(function(link) {
-    link.addEventListener('click', function() {
-        const navLinks = document.querySelector('.nav-links');
-        const navToggle = document.querySelector('.nav-toggle');
-        if(navLinks) navLinks.classList.remove('open');
-        if(navToggle) navToggle.classList.remove('active');
+document.querySelectorAll('.nav-link').forEach(function (link) {
+    link.addEventListener('click', function () {
+        const nl = document.querySelector('.nav-links');
+        const nt = document.querySelector('.nav-toggle');
+        if (nl) nl.classList.remove('open');
+        if (nt) nt.classList.remove('active');
     });
 });
 </script>
