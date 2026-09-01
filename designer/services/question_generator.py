@@ -19,38 +19,17 @@ from .pdf_service import PDFService
 
 logger = logging.getLogger(__name__)
 
-try:
-    from google import genai
-    from google.genai import types
-    HAS_GEMINI_SDK = True
-except ImportError:
-    genai = None
-    types = None
-    HAS_GEMINI_SDK = False
-
 # ============================================================
-# CONFIG — speed + reliability for 10–500 questions
+# BULLETPROOF CONFIGURATION
 # ============================================================
 MIN_QUESTIONS = 10
 MAX_QUESTIONS = 500
-BATCH_LIMIT = 25  # fewer round-trips
+BATCH_LIMIT = 15  # 15 is the sweet spot. 25 causes AI JSON cutoff failures.
 
-PRIMARY_MODEL = getattr(settings, "AI_MODEL", "gemini-2.0-flash")
-
-# Only real high-quota free-tier models (skip fake names like gemini-3.6-flash)
-_KNOWN_GOOD = [
-    "gemini-2.0-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
-    "gemini-2.0-flash-lite",
-]
-_pm = str(PRIMARY_MODEL or "").strip()
-GEMINI_MODELS_CASCADE = []
-for m in [_pm] + _KNOWN_GOOD:
-    if m and m not in GEMINI_MODELS_CASCADE and "3.6" not in m.lower():
-        GEMINI_MODELS_CASCADE.append(m)
-if not GEMINI_MODELS_CASCADE:
-    GEMINI_MODELS_CASCADE = list(_KNOWN_GOOD)
+# Strict 4.2s pacing ensures we stay under Google's 15 RPM Free Tier limit.
+MIN_REQUEST_INTERVAL = 4.2
+MAX_FAIL_STREAK = 8
+RATE_LIMIT_BACKOFF = 10
 
 GEMINI_MAX_OUTPUT_TOKENS = 8192
 GEMINI_INPUT_CHARS = 35000
@@ -58,14 +37,8 @@ GEMINI_INPUT_CHARS = 35000
 HF_MAX_TOKENS = 1024
 HF_INPUT_CHARS = 12000
 
-HTTP_TIMEOUT = 55
-GENERATE_DEADLINE_SEC = 70
-MAX_MODEL_ATTEMPTS = 5
-
-# Light server pacing only (frontend does NOT add 4s every batch)
-MIN_REQUEST_INTERVAL = 0.8
-MAX_FAIL_STREAK = 6
-RATE_LIMIT_BACKOFF = 3
+HTTP_TIMEOUT = 45
+GENERATE_DEADLINE_SEC = 90
 
 TASK_TIMEOUT = 7200
 REVIEW_TIMEOUT = 7200
@@ -99,16 +72,13 @@ META_QUESTION_PATTERNS = [
     r"\bthe provided (text|material|document)\b",
 ]
 
-
 def parse_keys(raw_val: str) -> List[str]:
     if not raw_val:
         return []
     return [k.strip() for k in str(raw_val).split(",") if k.strip()]
 
-
 def _short_err(text: str, n: int = 180) -> str:
     return re.sub(r"\s+", " ", (text or "")).strip()[:n]
-
 
 def estimate_max_questions_from_text(text: str) -> dict:
     raw = (text or "").strip()
@@ -138,7 +108,6 @@ def estimate_max_questions_from_text(text: str) -> dict:
         "min_questions": MIN_QUESTIONS if max_q >= MIN_QUESTIONS else max(1, max_q),
     }
 
-
 def normalize_question_key(text: str) -> str:
     t = (text or "").lower().strip()
     t = re.sub(r"[^a-z0-9\s]", " ", t)
@@ -151,17 +120,14 @@ def normalize_question_key(text: str) -> str:
     tokens = [w for w in t.split() if w not in stop and len(w) > 1]
     return " ".join(tokens[:28])
 
-
 def question_fingerprint(text: str) -> str:
     return hashlib.sha1(normalize_question_key(text).encode("utf-8")).hexdigest()[:16]
-
 
 def is_meta_question(text: str) -> bool:
     t = (text or "").lower()
     return any(re.search(p, t, re.I) for p in META_QUESTION_PATTERNS)
 
-
-def is_near_duplicate(a: str, b: str, threshold: float = 0.82) -> bool:
+def is_near_duplicate(a: str, b: str, threshold: float = 0.85) -> bool:
     ta = set(normalize_question_key(a).split())
     tb = set(normalize_question_key(b).split())
     if not ta or not tb:
@@ -170,11 +136,9 @@ def is_near_duplicate(a: str, b: str, threshold: float = 0.82) -> bool:
     union = len(ta | tb)
     return union > 0 and (inter / union) >= threshold
 
-
 def _get_not_found_models() -> Set[str]:
     cached = cache.get(GEMINI_NOT_FOUND_CACHE_KEY) or []
     return set(cached) if isinstance(cached, list) else set()
-
 
 def _remember_not_found_model(model: str) -> None:
     if not model:
@@ -185,14 +149,11 @@ def _remember_not_found_model(model: str) -> None:
     found.add(model)
     cache.set(GEMINI_NOT_FOUND_CACHE_KEY, list(found), timeout=3600)
 
-
 def _is_model_busy(model: str) -> bool:
     return bool(cache.get(f"qg:busy:model:{model}"))
 
-
-def _mark_model_busy(model: str, seconds: int = 12) -> None:
+def _mark_model_busy(model: str, seconds: int = 15) -> None:
     cache.set(f"qg:busy:model:{model}", True, timeout=seconds)
-
 
 class GeminiRateLimiter:
     LAST_CALL_KEY = "qg:quota:last_call"
@@ -251,32 +212,20 @@ class QuestionGenerator:
         return str(text or "")
 
     def _models(self) -> List[str]:
+        base_models = [
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-flash-8b"
+        ]
+        pm = str(getattr(settings, "AI_MODEL", "")).strip().lower()
+        if pm and pm not in base_models and "3.6" not in pm:
+            base_models.insert(0, pm)
+            
         not_found = _get_not_found_models()
-        out, seen = [], set()
-        for m in GEMINI_MODELS_CASCADE:
-            if not m or m in seen or m in not_found or _is_model_busy(m):
-                continue
-            seen.add(m)
-            out.append(m)
-        if not out:
-            out = [m for m in GEMINI_MODELS_CASCADE if m not in not_found]
-        return out
-
-    def _extract_sdk_text(self, resp) -> str:
-        try:
-            t = getattr(resp, "text", None)
-            if t:
-                return t
-        except Exception:
-            pass
-        try:
-            cands = getattr(resp, "candidates", None) or []
-            if not cands:
-                return ""
-            parts = getattr(getattr(cands[0], "content", None), "parts", None) or []
-            return "\n".join(getattr(p, "text", "") or "" for p in parts)
-        except Exception:
-            return ""
+        out = [m for m in base_models if m not in not_found and not _is_model_busy(m)]
+        
+        # If all valid models are marked busy, return the most reliable one anyway to avoid failing
+        return out if out else ["gemini-1.5-flash"]
 
     def generate(
         self,
@@ -287,7 +236,7 @@ class QuestionGenerator:
         avoid_questions: List[str] = None,
     ) -> List[dict]:
         if not self.available:
-            self.last_error = "No GEMINI_API_KEY or HUGGINGFACE_TOKEN configured."
+            self.last_error = "No API keys configured."
             return []
 
         full_text = self._text_to_str(text)
@@ -309,68 +258,28 @@ class QuestionGenerator:
 
         deadline = time.time() + GENERATE_DEADLINE_SEC
         attempts = 0
-        not_found = _get_not_found_models()
 
+        # PURE REST IMPLEMENTATION - Bypasses buggy SDKs, logs exact errors
         for key in self.gemini_keys:
-            if time.time() >= deadline or attempts >= MAX_MODEL_ATTEMPTS:
-                break
+            if not str(key).startswith("AIza"):
+                self.last_error = "API key must start with AIza"
+                continue
 
             for model in self._models():
-                if time.time() >= deadline or attempts >= MAX_MODEL_ATTEMPTS:
+                if time.time() >= deadline or attempts >= 4:
                     break
-                if model in not_found:
-                    continue
 
                 left = deadline - time.time()
-                if left < 6:
+                if left < 5:
                     break
 
                 call_timeout = max(10, min(HTTP_TIMEOUT, int(left - 2)))
                 attempts += 1
 
-                # -------- ONE path only: SDK preferred, else REST --------
                 try:
-                    if HAS_GEMINI_SDK:
-                        logger.info("Gemini SDK → %s batch %s/%s", model, batch_index + 1, total_batches)
-                        kw = {"api_key": key}
-                        try:
-                            kw["http_options"] = types.HttpOptions(timeout=call_timeout * 1000)
-                        except Exception:
-                            pass
-                        client = genai.Client(**kw)
-                        cfg = {
-                            "temperature": 0.7,
-                            "max_output_tokens": GEMINI_MAX_OUTPUT_TOKENS,
-                            "response_mime_type": "application/json",
-                        }
-                        try:
-                            cfg["safety_settings"] = [
-                                types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
-                                types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
-                                types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
-                                types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
-                            ]
-                        except Exception:
-                            pass
-                        resp = client.models.generate_content(
-                            model=model,
-                            contents=prompt,
-                            config=types.GenerateContentConfig(**cfg),
-                        )
-                        content = self._extract_sdk_text(resp)
-                        qs = self._filter_quality(self._parse_response(content), avoid_questions)
-                        if qs:
-                            GeminiRateLimiter.record_call()
-                            self.last_provider = f"gemini-sdk:{model}"
-                            return qs[:num_questions]
-                        raise RuntimeError("empty/unparseable SDK response")
-
-                    # REST only if no SDK
                     logger.info("Gemini REST → %s batch %s/%s", model, batch_index + 1, total_batches)
-                    url = (
-                        "https://generativelanguage.googleapis.com/v1beta/models/"
-                        f"{model}:generateContent?key={key}"
-                    )
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+                    
                     r = requests.post(
                         url,
                         json={
@@ -384,42 +293,54 @@ class QuestionGenerator:
                         },
                         timeout=call_timeout,
                     )
+
                     if r.status_code == 200:
                         data = r.json()
                         cands = data.get("candidates") or []
                         if not cands:
-                            raise RuntimeError("no candidates")
+                            self.gemini_error = f"{model}: Empty response from Google"
+                            continue
+                        
                         parts = (cands[0].get("content") or {}).get("parts") or []
                         content = parts[0].get("text", "") if parts else ""
                         qs = self._filter_quality(self._parse_response(content), avoid_questions)
+                        
                         if qs:
                             GeminiRateLimiter.record_call()
                             self.last_provider = f"gemini-rest:{model}"
                             return qs[:num_questions]
-                        raise RuntimeError("unparseable")
-                    if r.status_code == 404:
-                        raise RuntimeError("404 not found")
-                    if r.status_code == 429:
-                        raise RuntimeError("429 rate limited")
-                    try:
-                        msg = (r.json().get("error") or {}).get("message") or r.text
-                    except Exception:
-                        msg = r.text
-                    raise RuntimeError(f"HTTP {r.status_code}: {msg}")
+                            
+                        self.gemini_error = f"{model}: Returned invalid JSON format"
+                        self.last_error = self.gemini_error
 
-                except Exception as e:
-                    err = str(e)
-                    low = err.lower()
-                    self.gemini_error = f"{model}: {_short_err(err)}"
-                    self.last_error = self.gemini_error
-                    logger.warning("Model fail → next: %s", self.gemini_error)
-                    if "404" in low or "not found" in low:
-                        not_found.add(model)
+                    elif r.status_code == 404:
                         _remember_not_found_model(model)
-                    elif any(x in low for x in ("429", "resource_exhausted", "quota", "rate")):
-                        _mark_model_busy(model, 12)
-                    continue  # next model immediately
+                        self.gemini_error = f"{model} does not exist"
+                        continue
 
+                    elif r.status_code == 429:
+                        _mark_model_busy(model, 15)
+                        self.gemini_error = "Rate limit reached"
+                        break # Break model loop, try next API key if available
+
+                    else:
+                        try:
+                            msg = (r.json().get("error") or {}).get("message") or r.text
+                        except Exception:
+                            msg = r.text
+                        self.gemini_error = f"HTTP {r.status_code}: {_short_err(msg)}"
+                        
+                        # Hard stop if API key is fully invalid
+                        if "API key not valid" in msg:
+                            self.last_error = "Google API Key is invalid."
+                            return []
+
+                except requests.exceptions.Timeout:
+                    self.gemini_error = f"{model}: Connection timed out"
+                except Exception as e:
+                    self.gemini_error = f"{model}: {_short_err(str(e))}"
+
+        # ---------- HuggingFace Fallback ----------
         if self.hf_token and time.time() < deadline:
             qs = self._generate_hf(
                 full_text, num_questions, batch_index, total_batches, avoid_questions, deadline
@@ -428,7 +349,7 @@ class QuestionGenerator:
                 return qs[:num_questions]
 
         if not self.last_error:
-            self.last_error = self.gemini_error or "All AI providers failed."
+            self.last_error = self.gemini_error or "All AI models failed to generate valid questions."
         return []
 
     def _filter_quality(self, qs: List[dict], avoid_questions: List[str]) -> List[dict]:
@@ -489,7 +410,7 @@ class QuestionGenerator:
             extra = f"Batch {batch_index + 1}/{total_batches}. Different facts than other batches.\n"
         avoid_block = ""
         if avoid_questions:
-            lines = "\n".join(f"- {q[:100]}" for q in avoid_questions[-25:] if q)
+            lines = "\n".join(f"- {q[:100]}" for q in avoid_questions[-20:] if q)
             avoid_block = f"\nDo NOT repeat:\n{lines}\n"
         return f"""Create EXACTLY {num_questions} MCQs from the material.
 {extra}{avoid_block}
@@ -614,24 +535,19 @@ class ExamGenerationManager:
                 return 400, {"success": False, "error": str(e)}
 
             if not text_by_page:
-                return 400, {"success": False, "error": "No readable text found."}
+                return 400, {"success": False, "error": "No readable text found in document."}
 
             full_text = "\n\n".join(str(v) for v in text_by_page.values())
             capacity = estimate_max_questions_from_text(full_text)
             max_possible = capacity["max_questions"]
 
             if max_possible < 1:
-                return 400, {"success": False, "error": "Material too short.", "material": capacity}
+                return 400, {"success": False, "error": "Material too short to generate questions.", "material": capacity}
 
-            # Cap to material, but allow up to MAX_QUESTIONS when material supports it
             if requested > max_possible:
-                # Soft-cap instead of hard fail for uncle demo: clamp and continue
                 requested = max_possible
 
-            if max_possible < MIN_QUESTIONS:
-                count = max(1, min(requested, max_possible))
-            else:
-                count = max(1, min(MAX_QUESTIONS, min(requested, max_possible)))
+            count = max(1, min(MAX_QUESTIONS, requested))
 
             batches, rem = [], count
             while rem > 0:
@@ -681,7 +597,7 @@ class ExamGenerationManager:
         try:
             task_id = request.session.get("gen_task_id")
             if not task_id:
-                return 400, {"success": False, "error": "No active session. Click Generate again."}
+                return 400, {"success": False, "error": "Session expired. Click Generate again."}
 
             state = cache.get(cls._task_key(task_id))
             if not state:
@@ -712,7 +628,7 @@ class ExamGenerationManager:
                 }
 
             still = target - len(collected)
-            ask_n = min(BATCH_LIMIT, still + 2)
+            ask_n = min(BATCH_LIMIT, still + 3)
             avoid = [q.get("question_text", "") for q in collected]
 
             gen = QuestionGenerator()
@@ -739,13 +655,19 @@ class ExamGenerationManager:
             if gained <= 0:
                 state["fail_streak"] = int(state.get("fail_streak", 0)) + 1
                 cache.set(cls._task_key(task_id), state, timeout=TASK_TIMEOUT)
-                err = gen.last_error or "No questions"
+                
+                err = gen.last_error or "AI returned duplicate or invalid questions."
                 is_rate = any(x in err.lower() for x in ("429", "rate", "quota", "busy"))
 
-                # Prefer delivering what we have over endless busy loops
-                if len(collected) >= max(5, int(target * 0.5)) and state["fail_streak"] >= 2:
+                if len(collected) >= target:
+                    state["collected"] = collected
+                    return 200, cls._finish_generation(request, state)
+
+                # Return what we have if we repeatedly fail but have enough to be useful
+                if state["fail_streak"] >= 3 and len(collected) >= max(5, int(target * 0.6)):
                     state["collected"] = collected
                     state["target_count"] = len(collected)
+                    cache.set(cls._task_key(task_id), state, timeout=TASK_TIMEOUT)
                     return 200, cls._finish_generation(request, state)
 
                 if state["fail_streak"] >= MAX_FAIL_STREAK:
@@ -767,7 +689,7 @@ class ExamGenerationManager:
                     "success": False,
                     "retryable": True,
                     "retry_after": RATE_LIMIT_BACKOFF if is_rate else 2,
-                    "error": f"Retry {state['fail_streak']}/{MAX_FAIL_STREAK}",
+                    "error": f"Retrying... ({err})",
                     "progress": pct,
                     "total_so_far": len(collected),
                     "total_questions": target,
