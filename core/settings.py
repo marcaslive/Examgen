@@ -342,7 +342,7 @@ GEMINI_API_KEY = os.environ.get(
 
 AI_MODEL = os.environ.get(
     "AI_MODEL",
-    "gemini-2.0-flash",
+    "Gemini 3.1 Flash Lite",
 )
 
 HUGGINGFACE_TOKEN = os.environ.get(

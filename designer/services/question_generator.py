@@ -56,6 +56,34 @@ HF_CHAT_MODELS = [
 
 GEMINI_NOT_FOUND_CACHE_KEY = "qg:gemini:not_found_models"
 
+# ==============================================================
+# GEMINI MODEL PRIORITY:
+# 1. Gemini 3.5 Flash Lite (Primary)
+# 2. Gemini 3.1 Flash Lite (Backup)
+# 3. Older Flash models (Safety net)
+# ==============================================================
+PRIMARY_MODEL = getattr(settings, "AI_MODEL", "gemini-3.5-flash-lite")
+
+_KNOWN_GOOD = [
+    "gemini-3.5-flash-lite",  # Your Primary
+    "gemini-3.1-flash-lite",  # Your Backup
+    "gemini-2.0-flash",       # Fallback 1
+    "gemini-1.5-flash",       # Fallback 2
+    "gemini-1.5-flash-8b",    # Fallback 3
+]
+
+GEMINI_MODELS_CASCADE = []
+for m in [PRIMARY_MODEL] + _KNOWN_GOOD:
+    if not m or m in GEMINI_MODELS_CASCADE:
+        continue
+    # Skip only known-bad placeholders, NOT 3.5 / 3.1
+    if m.lower() in ("gemini-3.6-flash",):
+        continue
+    GEMINI_MODELS_CASCADE.append(m)
+
+if not GEMINI_MODELS_CASCADE:
+    GEMINI_MODELS_CASCADE = list(_KNOWN_GOOD)
+
 META_QUESTION_PATTERNS = [
     r"\baccording to the (text|passage|document|material|pdf|excerpt)\b",
     r"\bin the (text|passage|document|material|pdf|excerpt|section|chapter)\b",
@@ -212,20 +240,11 @@ class QuestionGenerator:
         return str(text or "")
 
     def _models(self) -> List[str]:
-        base_models = [
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-1.5-flash-8b"
-        ]
-        pm = str(getattr(settings, "AI_MODEL", "")).strip().lower()
-        if pm and pm not in base_models and "3.6" not in pm:
-            base_models.insert(0, pm)
-            
+        """Return models to try in priority order, skipping dead/busy ones."""
         not_found = _get_not_found_models()
-        out = [m for m in base_models if m not in not_found and not _is_model_busy(m)]
-        
-        # If all valid models are marked busy, return the most reliable one anyway to avoid failing
-        return out if out else ["gemini-1.5-flash"]
+        out = [m for m in GEMINI_MODELS_CASCADE if m not in not_found and not _is_model_busy(m)]
+        # If all valid models are marked busy, return the cascade anyway
+        return out if out else [m for m in GEMINI_MODELS_CASCADE if m not in not_found]
 
     def generate(
         self,
@@ -266,7 +285,7 @@ class QuestionGenerator:
                 continue
 
             for model in self._models():
-                if time.time() >= deadline or attempts >= 4:
+                if time.time() >= deadline or attempts >= 5:
                     break
 
                 left = deadline - time.time()
@@ -315,13 +334,15 @@ class QuestionGenerator:
 
                     elif r.status_code == 404:
                         _remember_not_found_model(model)
-                        self.gemini_error = f"{model} does not exist"
+                        self.gemini_error = f"{model} does not exist. Trying next model..."
+                        logger.warning(f"Model {model} returned 404, switching to next")
                         continue
 
                     elif r.status_code == 429:
                         _mark_model_busy(model, 15)
-                        self.gemini_error = "Rate limit reached"
-                        break # Break model loop, try next API key if available
+                        self.gemini_error = f"{model}: Rate limit. Trying next model..."
+                        logger.warning(f"Model {model} rate limited, switching to next")
+                        continue
 
                     else:
                         try:
@@ -331,8 +352,8 @@ class QuestionGenerator:
                         self.gemini_error = f"HTTP {r.status_code}: {_short_err(msg)}"
                         
                         # Hard stop if API key is fully invalid
-                        if "API key not valid" in msg:
-                            self.last_error = "Google API Key is invalid."
+                        if "API key not valid" in msg or "API_KEY_INVALID" in msg:
+                            self.last_error = "Google API Key is invalid. Please regenerate."
                             return []
 
                 except requests.exceptions.Timeout:
