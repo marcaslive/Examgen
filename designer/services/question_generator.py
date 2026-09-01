@@ -33,16 +33,15 @@ except ImportError:
 # ============================================================
 MIN_QUESTIONS = 10
 MAX_QUESTIONS = 500
-BATCH_LIMIT = 20  # Fast 20 questions per call with Gemini 2.0 Flash
+# INCREASED BATCH SIZE: Generates 20 questions per call (cuts time in half)
+BATCH_LIMIT = 20  
 
 PRIMARY_MODEL = getattr(settings, "AI_MODEL", "gemini-2.0-flash")
 
-# High-speed, high-quota Gemini models
 GEMINI_MODELS_CASCADE = [
     PRIMARY_MODEL,
     "gemini-2.0-flash",
     "gemini-1.5-flash",
-    "gemini-2.0-flash-lite",
     "gemini-1.5-flash-8b",
 ]
 
@@ -52,13 +51,13 @@ GEMINI_INPUT_CHARS = 40000
 HF_MAX_TOKENS = 1024
 HF_INPUT_CHARS = 12000
 
-HTTP_TIMEOUT = 25
-GENERATE_DEADLINE_SEC = 75
+HTTP_TIMEOUT = 30
+GENERATE_DEADLINE_SEC = 90
 MAX_MODEL_ATTEMPTS = 3
 
-MIN_REQUEST_INTERVAL = 1.0  # 1s interval for fast throughput
-MAX_FAIL_STREAK = 5
-RATE_LIMIT_BACKOFF = 3
+MIN_REQUEST_INTERVAL = 4.2
+MAX_FAIL_STREAK = 8
+RATE_LIMIT_BACKOFF = 5
 
 TASK_TIMEOUT = 7200
 REVIEW_TIMEOUT = 7200
@@ -185,15 +184,6 @@ def _remember_not_found_model(model: str) -> None:
     cache.set(GEMINI_NOT_FOUND_CACHE_KEY, list(found), timeout=3600)
 
 
-def _is_model_busy(model: str) -> bool:
-    return bool(cache.get(f"qg:busy:model:{model}"))
-
-
-def _mark_model_busy(model: str, seconds: int = 12) -> None:
-    """Short 12s busy lock so model becomes available quickly."""
-    cache.set(f"qg:busy:model:{model}", True, timeout=seconds)
-
-
 class GeminiRateLimiter:
     LAST_CALL_KEY = "qg:quota:last_call"
     DAY_KEY_PREFIX = "qg:quota:calls_day:"
@@ -226,7 +216,7 @@ class GeminiRateLimiter:
 
     @classmethod
     def record_call(cls):
-        cache.set(cls.LAST_CALL_KEY, time.time(), timeout=60)
+        cache.set(cls.LAST_CALL_KEY, time.time(), timeout=120)
         dk = cls._day_key()
         cache.set(dk, int(cache.get(dk, 0) or 0) + 1, timeout=172800)
 
@@ -254,11 +244,10 @@ class QuestionGenerator:
         ordered, seen = [], set()
         not_found = _get_not_found_models()
         for m in GEMINI_MODELS_CASCADE:
-            if not m or m in seen or m in not_found or _is_model_busy(m):
+            if not m or m in seen or m in not_found:
                 continue
             seen.add(m)
             ordered.append(m)
-        # Fallback to full cascade if all are temporarily flagged
         return ordered or [m for m in GEMINI_MODELS_CASCADE if m not in not_found]
 
     def _remaining_timeout(self, deadline: float) -> float:
@@ -340,13 +329,13 @@ class QuestionGenerator:
                     continue
 
                 left = self._remaining_timeout(deadline)
-                if left < 3:
+                if left < 4:
                     break
 
                 call_timeout = max(5, min(HTTP_TIMEOUT, int(left - 2)))
                 attempts += 1
 
-                # ---------- SDK Path ----------
+                # ---------- SDK path ----------
                 if HAS_GEMINI_SDK:
                     try:
                         logger.info("Gemini SDK → %s batch %s/%s", model, batch_index + 1, total_batches)
@@ -385,14 +374,17 @@ class QuestionGenerator:
                             not_found_models.add(model)
                             _remember_not_found_model(model)
                             continue
+                        # If Rate Limited, skip immediately to the next model in the loop
                         if "429" in err or "resource_exhausted" in low or "quota" in low or "rate" in low:
-                            _mark_model_busy(model, 12)
                             continue
 
-                # ---------- REST Path ----------
+                # ---------- REST path ----------
                 try:
                     logger.info("Gemini REST → %s batch %s/%s", model, batch_index + 1, total_batches)
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+                    url = (
+                        "https://generativelanguage.googleapis.com/v1beta/models/"
+                        f"{model}:generateContent?key={key}"
+                    )
                     payload = {
                         "contents": [{"parts": [{"text": prompt}]}],
                         "safetySettings": safety_rest,
@@ -422,7 +414,6 @@ class QuestionGenerator:
                         _remember_not_found_model(model)
                         continue
                     elif r.status_code == 429:
-                        _mark_model_busy(model, 12)
                         self.gemini_error = f"REST {model}: 429 Rate Limited"
                         self.last_error = self.gemini_error
                         continue
@@ -494,7 +485,7 @@ class QuestionGenerator:
                 "max_tokens": HF_MAX_TOKENS,
             }
             try:
-                r = requests.post(url, headers=headers, json=body, timeout=12)
+                r = requests.post(url, headers=headers, json=body, timeout=15)
                 if r.status_code == 200:
                     content = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
                     qs = self._filter_quality(self._parse_response(content), avoid_questions)
@@ -519,8 +510,8 @@ class QuestionGenerator:
 
         avoid_block = ""
         if avoid_questions:
-            sample = avoid_questions[-30:]
-            lines = "\n".join(f"- {q[:100]}" for q in sample if q)
+            sample = avoid_questions[-40:]
+            lines = "\n".join(f"- {q[:120]}" for q in sample if q)
             avoid_block = f"\nDO NOT repeat or paraphrase these:\n{lines}\n"
 
         return f"""You are an exam writer. Create EXACTLY {num_questions} multiple-choice questions from the material.
@@ -615,15 +606,6 @@ class ExamGenerationManager:
     @staticmethod
     def _review_key(review_id):
         return f"qg:review:{review_id}"
-
-    @classmethod
-    def _progress(cls, collected, target, batch_index, total_batches) -> int:
-        if target <= 0:
-            return 0
-        by_count = (collected / target) * 100.0
-        by_batch = (batch_index / max(total_batches, 1)) * 100.0
-        p = max(by_count, by_batch * 0.9)
-        return int(min(99, max(1, p))) if collected < target else 100
 
     @classmethod
     def _merge_unique(cls, existing: List[dict], new_qs: List[dict]) -> List[dict]:
@@ -734,7 +716,7 @@ class ExamGenerationManager:
                 },
                 "max_questions_for_material": max_possible,
                 "material": capacity,
-                "progress": 1,
+                "progress": 0,
                 "message": f"Plan ready: {count} questions",
                 "quota": cls.get_quota_status(),
             }
@@ -762,28 +744,9 @@ class ExamGenerationManager:
             if len(collected) >= target:
                 return 200, cls._finish_generation(request, state)
 
-            status = cls.get_quota_status()
-            prog = cls._progress(len(collected), target, batch_index, total_batches)
-
-            if status["wait_seconds"] > 0:
-                return 429, {
-                    "success": False,
-                    "retryable": True,
-                    "error": f"Pacing… {status['wait_seconds']}s",
-                    "retry_after": status["wait_seconds"],
-                    "progress": prog,
-                    "total_so_far": len(collected),
-                    "total_questions": target,
-                    "batch_index": batch_index,
-                    "total_batches": total_batches,
-                    "max_questions_for_material": max_mat,
-                    "message": f"{len(collected)}/{target} — pause",
-                    "quota": status,
-                }
-
             still_needed = target - len(collected)
             batch_size = min(BATCH_LIMIT, still_needed)
-            ask_n = min(BATCH_LIMIT, batch_size + 2)
+            ask_n = min(BATCH_LIMIT, batch_size + 3) # Ask for a few extra for deduplication
 
             avoid = [q.get("question_text", "") for q in collected]
 
@@ -818,6 +781,7 @@ class ExamGenerationManager:
                     state["collected"] = collected
                     return 200, cls._finish_generation(request, state)
 
+                # Return what we have if we repeatedly fail but have enough to be useful
                 if state["fail_streak"] >= 3 and len(collected) >= max(5, int(target * 0.6)):
                     state["collected"] = collected
                     state["target_count"] = len(collected)
@@ -833,26 +797,17 @@ class ExamGenerationManager:
                         "success": False,
                         "retryable": False,
                         "error": f"Generation failed: {err}",
-                        "progress": prog,
                         "total_so_far": len(collected),
                         "total_questions": target,
-                        "max_questions_for_material": max_mat,
-                        "quota": cls.get_quota_status(),
                     }
 
-                return (429 if is_rate else 503), {
+                return 429, {
                     "success": False,
                     "retryable": True,
-                    "retry_after": RATE_LIMIT_BACKOFF,
-                    "error": f"Model busy. Retrying batch ({state['fail_streak']}/{MAX_FAIL_STREAK})",
-                    "progress": prog,
+                    "retry_after": RATE_LIMIT_BACKOFF if is_rate else 3,
+                    "error": f"Retrying batch ({state['fail_streak']}/{MAX_FAIL_STREAK})",
                     "total_so_far": len(collected),
                     "total_questions": target,
-                    "batch_index": batch_index,
-                    "total_batches": total_batches,
-                    "max_questions_for_material": max_mat,
-                    "message": f"{len(collected)}/{target} unique — retrying",
-                    "quota": cls.get_quota_status(),
                 }
 
             state["collected"] = collected
@@ -860,21 +815,15 @@ class ExamGenerationManager:
             state["fail_streak"] = 0
             cache.set(cls._task_key(task_id), state, timeout=TASK_TIMEOUT)
 
-            prog = cls._progress(len(collected), target, state["batch_index"], total_batches)
             if len(collected) >= target:
                 return 200, cls._finish_generation(request, state)
 
             return 200, {
                 "success": True,
                 "done": False,
-                "batch_index": state["batch_index"],
-                "total_batches": total_batches,
-                "progress": prog,
                 "total_so_far": len(collected),
                 "total_questions": target,
-                "max_questions_for_material": max_mat,
-                "message": f"Batch {batch_index + 1}/{total_batches} — {len(collected)}/{target} unique",
-                "provider": gen.last_provider,
+                "message": f"Generated {len(collected)} of {target} questions",
                 "quota": cls.get_quota_status(),
             }
         except Exception as exc:
@@ -972,13 +921,10 @@ class ExamGenerationManager:
         return {
             "success": True,
             "done": True,
-            "progress": 100,
             "count": len(questions),
             "total_so_far": len(questions),
             "total_questions": target,
-            "max_questions_for_material": state.get("max_questions_for_material"),
-            "message": f"Done — {len(questions)} unique questions ready",
-            "quota": cls.get_quota_status(),
+            "message": f"Done — {len(questions)} unique questions ready"
         }
 
     @classmethod

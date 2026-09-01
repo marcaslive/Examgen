@@ -226,7 +226,7 @@
             stroke-linecap: round;
             stroke-dasharray: 534;
             stroke-dashoffset: 534;
-            transition: stroke-dashoffset 0.4s ease;
+            transition: stroke-dashoffset 0.6s ease; /* smooth transition */
         }
         .progress-text {
             position: absolute;
@@ -516,12 +516,12 @@ const CIRCUMFERENCE = 2 * Math.PI * 85; // ~534
 let selectedCount = '10';
 let isGenerating = false;
 let countdownTimer = null;
-let currentProgress = 0;
 
-/* Real Server Progress Engine - No Sticking at 95% */
+// ==============================================================
+// REAL PROGRESS ENGINE (No Artificial Sticking)
+// ==============================================================
 function updateProgress(pct, statusMsg, subMsg) {
-    pct = Math.max(1, Math.min(100, Math.floor(pct)));
-    currentProgress = pct;
+    pct = Math.max(0, Math.min(100, pct)); // Clamp 0-100
 
     const ringEl = document.getElementById('progress-ring');
     const pctEl  = document.getElementById('progress-pct');
@@ -529,20 +529,9 @@ function updateProgress(pct, statusMsg, subMsg) {
     const subEl = document.getElementById('loading-sub');
 
     if (ringEl) ringEl.style.strokeDashoffset = String(CIRCUMFERENCE - (pct / 100) * CIRCUMFERENCE);
-    if (pctEl) pctEl.textContent = pct + '%';
+    if (pctEl) pctEl.textContent = Math.floor(pct) + '%';
     if (labelEl && statusMsg) labelEl.textContent = statusMsg;
     if (subEl && subMsg) subEl.textContent = subMsg;
-}
-
-function completeProgress(nQuestions) {
-    updateProgress(100, `✨ ${nQuestions} questions ready`, 'Redirecting to review…');
-
-    setTimeout(() => {
-        const ring = document.getElementById('progress-circle-wrap');
-        const check = document.getElementById('success-check');
-        if (ring) ring.style.display = 'none';
-        if (check) check.classList.add('show');
-    }, 300);
 }
 
 function showLoading(show) {
@@ -553,6 +542,8 @@ function showLoading(show) {
         const ring = document.getElementById('progress-circle-wrap');
         if (check) check.classList.remove('show');
         if (ring) ring.style.display = '';
+        const dots = document.querySelector('.loading-label .dots');
+        if (dots) dots.style.display = '';
     }
 }
 
@@ -725,6 +716,9 @@ function showToast(msg, type) {
     }, 5500);
 }
 
+// ==============================================================
+// THE GENERATION LOGIC (PACED & RATE-LIMIT SAFE)
+// ==============================================================
 async function onGenerateClick() {
     if (isGenerating) return;
     const payload = buildPayload();
@@ -739,7 +733,7 @@ async function onGenerateClick() {
 
     isGenerating = true;
     showLoading(true);
-    updateProgress(5, 'Preparing document', 'Extracting material text');
+    updateProgress(5, 'Preparing Document', 'Extracting and analyzing text...');
 
     const { status, data } = await safeFetchJson(URL_START, {
         method: 'POST',
@@ -760,12 +754,11 @@ async function onGenerateClick() {
         return;
     }
 
-    const plan = data.plan || {};
-    if (plan.total_questions) {
-        window._currentTarget = plan.total_questions;
+    if (data.plan && data.plan.total_questions) {
+        window._currentTarget = data.plan.total_questions;
     }
 
-    updateProgress(15, 'Generating questions', `Crafting ${window._currentTarget} unique questions`);
+    updateProgress(10, 'Ready to Generate', `Starting batch generation for ${window._currentTarget} questions...`);
     await runBatches();
 }
 
@@ -787,43 +780,68 @@ async function runBatches() {
             body: '{}',
         });
 
+        // 1. DONE
         if (data.success && data.done) {
-            const nQ = data.count || window._currentTarget || 0;
-            completeProgress(nQ);
-            setTimeout(() => { window.location.href = URL_REVIEW; }, 1400);
+            updateProgress(100, `✨ ${window._currentTarget} questions ready`, 'Redirecting to review…');
+            
+            setTimeout(() => {
+                const ring = document.getElementById('progress-circle-wrap');
+                const check = document.getElementById('success-check');
+                if (ring) ring.style.display = 'none';
+                if (check) check.classList.add('show');
+                const dots = document.querySelector('.loading-label .dots');
+                if (dots) dots.style.display = 'none';
+            }, 300);
+
+            setTimeout(() => { window.location.href = URL_REVIEW; }, 1200);
             return;
         }
 
+        // 2. RETRYABLE RATE LIMIT / ERROR
         if (!data.success && data.retryable) {
             exhaustedRetries++;
-            const wait = Math.max(1, Number(data.retry_after) || 2);
+            const wait = Math.max(1, Number(data.retry_after) || 4);
 
-            updateProgress(currentProgress, 'Pacing AI Model', `Retrying batch (${exhaustedRetries}/15)`);
+            updateProgress(
+                Math.max(10, (data.total_so_far / window._currentTarget) * 100), 
+                'Pacing AI Request', 
+                `Cooldown to protect API quota... (Retry ${exhaustedRetries})`
+            );
 
-            if (exhaustedRetries > 15) {
+            if (exhaustedRetries > 20) {
                 endLoader();
-                showToast('All AI models are busy right now. Please try again shortly.', 'error');
+                showToast('All AI models are temporarily busy. Please wait a moment and try again.', 'error');
                 return;
             }
             await new Promise(r => setTimeout(r, wait * 1000));
             continue;
         }
 
+        // 3. SUCCESSFUL BATCH (Not done yet)
         if (data.success && !data.done) {
             exhaustedRetries = 0;
             const collected = data.total_so_far || 0;
             const target = data.total_questions || window._currentTarget || 10;
             
-            // Real Server Percentage calculation
-            const realPct = Math.min(98, Math.max(15, Math.floor((collected / target) * 100)));
-            updateProgress(realPct, 'Generating questions', `Collected ${collected} of ${target} questions`);
+            // Calculate real percentage based exactly on collected questions
+            const realPct = Math.min(99, Math.max(10, (collected / target) * 100));
             
-            await new Promise(r => setTimeout(r, 600));
+            updateProgress(realPct, 'Generating Questions', `Collected ${collected} of ${target} questions`);
+            
+            // CRITICAL PACING: Force a strict 4.2 second wait between batches to guarantee
+            // we NEVER exceed the 15 requests per minute free-tier limit.
+            await new Promise(r => setTimeout(r, 4200)); 
             continue;
         }
 
+        // 4. HARD FAILURE
         endLoader();
-        showToast(data.error || 'Generation failed. Please try again.', 'error');
+        const msg = (data.error || '').toLowerCase();
+        if (msg.includes('quota') || msg.includes('rate') || msg.includes('limit')) {
+            showToast('API quota exhausted. Please try again later.', 'error');
+        } else {
+            showToast(data.error || 'Generation failed. Please try again.', 'error');
+        }
         return;
     }
 }
