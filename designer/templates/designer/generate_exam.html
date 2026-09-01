@@ -737,20 +737,24 @@ async function onGenerateClick() {
 
     const { status, data } = await safeFetchJson(URL_START, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+        },
         body: JSON.stringify(payload),
     });
 
     if (status === 429) {
         endLoader();
-        startCountdown(data.retry_after || 60);
-        showToast(data.error || 'Rate limit active. Come back shortly.', 'error');
+        startCountdown((data && data.retry_after) || 60);
+        showToast((data && data.error) || 'Rate limit active. Come back shortly.', 'error');
         return;
     }
 
-    if (!data.success) {
+    if (!data || !data.success) {
         endLoader();
-        showToast(data.error || 'Could not start generation.', 'error');
+        showToast((data && data.error) || 'Could not start generation.', 'error');
         return;
     }
 
@@ -758,7 +762,11 @@ async function onGenerateClick() {
         window._currentTarget = data.plan.total_questions;
     }
 
-    updateProgress(10, 'Ready to Generate', `Starting batch generation for ${window._currentTarget} questions...`);
+    updateProgress(
+        10,
+        'Ready to Generate',
+        'Starting batch generation for ' + window._currentTarget + ' questions...'
+    );
     await runBatches();
 }
 
@@ -766,25 +774,40 @@ function endLoader() {
     isGenerating = false;
     showLoading(false);
     const btn = document.getElementById('btn-generate');
-    if (btn) { btn.disabled = false; btn.classList.remove('faded'); }
+    if (btn) {
+        btn.disabled = false;
+        btn.classList.remove('faded');
+    }
     refreshQuota();
 }
 
 async function runBatches() {
     let exhaustedRetries = 0;
+    const targetFallback = window._currentTarget || 10;
 
     while (true) {
         const { data } = await safeFetchJson(URL_BATCH, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
             body: '{}',
         });
 
+        if (!data) {
+            endLoader();
+            showToast('Empty response from server. Please try again.', 'error');
+            return;
+        }
+
         // 1. DONE
         if (data.success && data.done) {
-            updateProgress(100, `✨ ${window._currentTarget} questions ready`, 'Redirecting to review…');
-            
-            setTimeout(() => {
+            const nQ = data.count || data.total_so_far || window._currentTarget || 0;
+            updateProgress(100, '✨ ' + nQ + ' questions ready', 'Redirecting to review…');
+
+            setTimeout(function () {
                 const ring = document.getElementById('progress-circle-wrap');
                 const check = document.getElementById('success-check');
                 if (ring) ring.style.display = 'none';
@@ -793,54 +816,73 @@ async function runBatches() {
                 if (dots) dots.style.display = 'none';
             }, 300);
 
-            setTimeout(() => { window.location.href = URL_REVIEW; }, 1200);
+            setTimeout(function () {
+                window.location.href = URL_REVIEW;
+            }, 1200);
             return;
         }
 
-        // 2. RETRYABLE RATE LIMIT / ERROR
+        // 2. RETRYABLE (pacing / soft fail)
         if (!data.success && data.retryable) {
             exhaustedRetries++;
             const wait = Math.max(1, Number(data.retry_after) || 4);
+            const collected = Number(data.total_so_far) || 0;
+            const target = Number(data.total_questions) || targetFallback || 10;
+            const pct = Math.max(10, Math.min(99, (collected / target) * 100));
 
             updateProgress(
-                Math.max(10, (data.total_so_far / window._currentTarget) * 100), 
-                'Pacing AI Request', 
-                `Cooldown to protect API quota... (Retry ${exhaustedRetries})`
+                pct,
+                'Pacing AI Request',
+                'Cooldown… ' + collected + '/' + target + ' (retry ' + exhaustedRetries + ')'
             );
 
-            if (exhaustedRetries > 20) {
+            if (exhaustedRetries > 25) {
                 endLoader();
-                showToast('All AI models are temporarily busy. Please wait a moment and try again.', 'error');
+                showToast(
+                    'Models are busy or rate-limited. Wait a minute and try again.',
+                    'error'
+                );
                 return;
             }
-            await new Promise(r => setTimeout(r, wait * 1000));
+
+            await new Promise(function (r) {
+                setTimeout(r, wait * 1000);
+            });
             continue;
         }
 
-        // 3. SUCCESSFUL BATCH (Not done yet)
+        // 3. BATCH OK, more to go
         if (data.success && !data.done) {
             exhaustedRetries = 0;
-            const collected = data.total_so_far || 0;
-            const target = data.total_questions || window._currentTarget || 10;
-            
-            // Calculate real percentage based exactly on collected questions
+            const collected = Number(data.total_so_far) || 0;
+            const target = Number(data.total_questions) || targetFallback || 10;
             const realPct = Math.min(99, Math.max(10, (collected / target) * 100));
-            
-            updateProgress(realPct, 'Generating Questions', `Collected ${collected} of ${target} questions`);
-            
-            // CRITICAL PACING: Force a strict 4.2 second wait between batches to guarantee
-            // we NEVER exceed the 15 requests per minute free-tier limit.
-            await new Promise(r => setTimeout(r, 4200)); 
+
+            updateProgress(
+                realPct,
+                'Generating Questions',
+                'Collected ' + collected + ' of ' + target + ' questions'
+            );
+
+            // Stay under ~15 RPM (free tier)
+            await new Promise(function (r) {
+                setTimeout(r, 4200);
+            });
             continue;
         }
 
-        // 4. HARD FAILURE
+        // 4. HARD FAIL
         endLoader();
-        const msg = (data.error || '').toLowerCase();
-        if (msg.includes('quota') || msg.includes('rate') || msg.includes('limit')) {
+        const msg = ((data && data.error) || '').toLowerCase();
+        if (
+            msg.indexOf('quota') !== -1 ||
+            msg.indexOf('rate') !== -1 ||
+            msg.indexOf('limit') !== -1 ||
+            msg.indexOf('busy') !== -1
+        ) {
             showToast('API quota exhausted. Please try again later.', 'error');
         } else {
-            showToast(data.error || 'Generation failed. Please try again.', 'error');
+            showToast((data && data.error) || 'Generation failed. Please try again.', 'error');
         }
         return;
     }
